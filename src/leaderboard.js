@@ -45,7 +45,7 @@ export class Leaderboard {
     for (const [id, d] of this.docs) {
       const b = d && d.best && d.best[levelKey];
       if (!b || typeof b.n !== 'number' || !(b.n > 0) || b.n > 999) continue;
-      rows.push({ id, name: (typeof d.name === 'string' ? d.name : '').slice(0, 12) || '無名火柴人', n: b.n, t: +b.t || 0, me: id === this.uid });
+      rows.push({ id, name: (typeof d.name === 'string' ? d.name : '').slice(0, 12) || '', n: b.n, t: +b.t || 0, me: id === this.uid });
     }
     rows.sort((a, b) => a.n - b.n || a.t - b.t);
     return rows;
@@ -54,7 +54,7 @@ export class Leaderboard {
     const rows = [];
     for (const [id, d] of this.docs) {
       if (!d || typeof d.coins !== 'number' || !(d.coins >= 0) || d.coins > 1e7) continue;
-      rows.push({ id, name: (typeof d.name === 'string' ? d.name : '').slice(0, 12) || '無名火柴人', n: Math.round(d.coins), t: +d.updated || 0, me: id === this.uid });
+      rows.push({ id, name: (typeof d.name === 'string' ? d.name : '').slice(0, 12) || '', n: Math.round(d.coins), t: +d.updated || 0, me: id === this.uid });
     }
     rows.sort((a, b) => b.n - a.n || a.t - b.t);
     return rows;

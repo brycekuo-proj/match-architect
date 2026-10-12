@@ -5,6 +5,7 @@ import { View, loadModels } from './render3d.js';
 import { Audio } from './audio.js';
 import { Leaderboard } from './leaderboard.js';
 import { Turntable, hasLandmark } from './turntable.js';
+import { t, sh, lvt, LANG, setLang, applyStatic } from './i18n.js';
 
 const $ = id => document.getElementById(id);
 const audio = new Audio();
@@ -78,12 +79,12 @@ function levelsScreen() {
     const b = document.createElement('button');
     b.className = 'lvcard c' + (i % 3) + (locked ? ' locked' : '');
     b.disabled = locked;
-    const sub = best ? `你的最佳 ${best} 支` : `三星 ≤ ${lv.par} 支 · 最多 ${lv.budget}`;
+    const sub = best ? t('lv.best', { n: best }) : t('lv.sub', { par: lv.par, budget: lv.budget });
     const wb = lb.ready ? lb.worldBest(lv.key) : null;
-    b.innerHTML = `<span class="lvtop"><span class="lvnum">${lv.id}</span><span class="lvshindo">震度 ${lv.shindo}</span></span>
-      <span class="lvname">${lv.name}</span><span class="lvtag">${sub}</span>
-      ${wb ? `<span class="lvworld">世界最少 ${wb.n} 支</span>` : ''}
-      <span class="lvstars" aria-label="${stars} 顆星">${locked ? '未解鎖' : starStr(stars)}</span>`;
+    b.innerHTML = `<span class="lvtop"><span class="lvnum">${lv.id}</span><span class="lvshindo">${t('shindo', { s: sh(lv.shindo) })}</span></span>
+      <span class="lvname">${lvt(lv, 'name')}</span><span class="lvtag">${sub}</span>
+      ${wb ? `<span class="lvworld">${t('lv.world', { n: wb.n })}</span>` : ''}
+      <span class="lvstars" aria-label="${t('lv.starsA', { n: stars })}">${locked ? t('lv.locked') : starStr(stars)}</span>`;
     b.onclick = () => { audio.click(); startLevel(i); };
     grid.appendChild(b);
   });
@@ -101,32 +102,33 @@ function startLevel(i, restored) {
   view.buildMode = true; view.syncDesign(G.design);
   view.camGoal.yaw = -0.06; view.camGoal.pitch = 0.1;
   setTool('match');
-  $('lvTitle').textContent = `${lv.id}　${lv.name}`;
-  $('shindoChip').textContent = `震度 ${lv.shindo}`;
-  $('qShindo').textContent = `震度 ${lv.shindo}`;
+  const S = sh(lv.shindo);
+  $('lvTitle').textContent = `${lv.id}　${lvt(lv, 'name')}`;
+  $('shindoChip').textContent = t('shindo', { s: S });
+  $('qShindo').textContent = t('shindo', { s: S });
   const no = String(lv.id).padStart(3, '0');
   $('orderNo').textContent = no; $('resNo').textContent = no;
-  $('orderStamp').textContent = `震度 ${lv.shindo}`;
-  $('introName').textContent = lv.name;
-  $('introTag').textContent = lv.place || '火柴建築師工作室（新手訓練）';
-  $('introDesc').textContent = lv.desc;
-  $('introReal').textContent = lv.real ? '真實建築：' + lv.real : '';
+  $('orderStamp').textContent = t('shindo', { s: S });
+  $('introName').textContent = lvt(lv, 'name');
+  $('introTag').textContent = lvt(lv, 'place') || t('order.tutorial');
+  $('introDesc').textContent = lvt(lv, 'desc');
+  $('introReal').textContent = lv.real ? t('order.real', { r: lvt(lv, 'real') }) : '';
   const li = (ul, items) => { const e = $(ul); e.innerHTML = ''; for (const h of items) { const x = document.createElement('li'); x.innerHTML = h; e.appendChild(x); } };
   li('orderReq', [
-    lv.stars.length > 1 ? `碰到並撐住全部 <b>${lv.stars.length}</b> 顆星星` : '碰到並撐住星星（高度目標）',
-    `撐過震度 <b>${lv.shindo}</b> 地震 <b>10</b> 秒，膠點一個都不能斷`,
-    `火柴最多 <b>${lv.budget}</b> 支，每支成本 <b>${MATCH_COST}</b> 金幣（開震時付款）`,
+    lv.stars.length > 1 ? t('req.stars', { n: lv.stars.length }) : t('req.star'),
+    t('req.quake', { s: S }),
+    t('req.quota', { budget: lv.budget, cost: MATCH_COST }),
   ]);
   li('orderReward', [
-    `沒用完的火柴每支換 <b>${REFUND}</b> 金幣（最多 <b>+${(lv.budget - 1) * REFUND}</b>）`,
-    `<b>${lv.par}</b> 支以內完成：★★★`,
-    '上排行榜，比誰用的火柴最少',
+    t('rew.refund', { r: REFUND, max: (lv.budget - 1) * REFUND }),
+    t('rew.par', { par: lv.par }),
+    t('rew.board'),
   ]);
   $('howto').open = i === 0;
   const best = G.progress.best[lv.id];
-  $('introBest').textContent = best ? `你的最佳紀錄：${best} 支` : '';
+  $('introBest').textContent = best ? t('order.best', { n: best }) : '';
   $('introBest').hidden = !best;
-  $('introHint').textContent = lv.hint;
+  $('introHint').textContent = lvt(lv, 'hint');
   updateHUD();
   G.state = 'intro';
   show('ovIntro');
@@ -143,14 +145,14 @@ function beginBuild() {
   setPlayButton();
   const lv = LEVELS[G.idx];
   const tall = (lv.view[3] - lv.view[2]) > 4.5;
-  if (tall) setTimeout(() => toast('建築很大：兩指捏合或右邊的 ＋／－ 可以縮放，單指拖空白處移動畫面', 3000), 400);
+  if (tall) setTimeout(() => toast(t('toast.big'), 3000), 400);
 }
 
 function updateHUD() {
   const lv = LEVELS[G.idx], d = G.design, used = d.used();
   const box = $('matchBox'); box.innerHTML = '';
   const m = document.createElement('i'); m.className = 'mstick'; box.appendChild(m);
-  $('matchCount').innerHTML = `${used}<small>/${lv.budget} 支 · 三星 ≤ ${lv.par}</small>`;
+  $('matchCount').innerHTML = t('hud.count', { used, budget: lv.budget, par: lv.par });
   $('coinHud').textContent = G.coins;
   $('coinCost').textContent = used && G.state !== 'sim' && G.state !== 'result' ? `−${used * MATCH_COST}` : '';
   const reached = d.starsReached();
@@ -163,24 +165,25 @@ function updateHUD() {
 }
 function canStart() {
   const cs = G.design.canStart();
-  if (!cs.ok) return cs;
+  if (!cs.ok) return { ...cs, reason: why(cs) };
   const cost = G.design.used() * MATCH_COST;
-  if (cost > G.coins) return { ok: false, reason: `金幣不夠：這次要 ${cost} 金幣，你只有 ${G.coins}` };
+  if (cost > G.coins) return { ok: false, reason: t('why.coins', { cost, coins: G.coins }) };
   return cs;
 }
-function setTool(t) {
-  G.tool = t;
-  for (const [id, k] of [['toolMatch', 'match'], ['toolDelete', 'delete']]) $(id).classList.toggle('on', k === t);
-  document.body.classList.toggle('deleting', t === 'delete');
+function setTool(tool) {
+  G.tool = tool;
+  for (const [id, k] of [['toolMatch', 'match'], ['toolDelete', 'delete']]) $(id).classList.toggle('on', k === tool);
+  document.body.classList.toggle('deleting', tool === 'delete');
 }
+const why = r => r.code ? t('why.' + r.code, r) : r.reason;
 function pushUndo() { G.undo.push(G.design.snapshot()); if (G.undo.length > 120) G.undo.shift(); }
 function refresh(fresh) { view.syncDesign(G.design, fresh); updateHUD(); }
 
 // ---------------------------------------------------------------- quake
 function setPlayButton() {
   const b = $('btnPlay');
-  if (G.state === 'sim') { b.classList.add('stop'); $('playLabel').textContent = '停止'; }
-  else { b.classList.remove('stop'); $('playLabel').textContent = '開始地震'; }
+  if (G.state === 'sim') { b.classList.add('stop'); $('playLabel').textContent = t('play.stop'); }
+  else { b.classList.remove('stop'); $('playLabel').textContent = t('play.start'); }
   for (const id of ['toolMatch', 'toolDelete', 'btnUndo', 'btnClear']) $(id).classList.toggle('dim', G.state === 'sim');
 }
 function startQuake() {
@@ -240,7 +243,7 @@ function simTick(dt) {
     }
     if (ev.type === 'won') { audio.rumbleStop(); view.fxConfetti(); audio.win(); sim.resultAt = sim.t + 1.1; sim.resultWon = true; }
   }
-  if (sim.resultAt !== undefined && sim.t >= sim.resultAt && G.state === 'sim') showResult(sim.resultWon, sim.reason);
+  if (sim.resultAt !== undefined && sim.t >= sim.resultAt && G.state === 'sim') showResult(sim.resultWon, t('fail.' + (sim.reasonCode || 'joint')));
   const env = running ? sim.quakeEnv(sim.t) : 0;
   const q = LEVELS[G.idx].quake, strength = env * q.A / 0.12;
   audio.rumbleLevel(Math.min(1.4, strength));
@@ -276,7 +279,7 @@ function showResult(won, reason) {
   if (won) {
     const unused = Math.max(0, lv.budget - used), reward = unused * REFUND;
     setCoins(G.coins + reward);
-    coinLine = `酬勞結算：成本 <b>−${paid}</b>　省下 ${unused} 支 × ${REFUND} = <b>+${reward}</b><br>金幣 <b class="big">${G.coins}</b>`;
+    coinLine = t('res.pay', { paid, unused, r: REFUND, reward, coins: G.coins });
     stars = starsFor(lv, used);
     const p = G.progress;
     p.stars[lv.id] = Math.max(p.stars[lv.id] || 0, stars);
@@ -285,26 +288,26 @@ function showResult(won, reason) {
     store.set('mq2_progress', p);
   } else {
     audio.lose();
-    coinLine = `火柴燒掉了：成本 <b>−${paid}</b><br>金幣 <b class="big">${G.coins}</b>`;
-    if (G.coins < FLOOR_COINS) { const top = FLOOR_COINS - G.coins; setCoins(FLOOR_COINS); coinLine += `<br>火柴盒補給：送你 ${top} 金幣（補到 ${FLOOR_COINS}）`; }
+    coinLine = t('res.burn', { paid, coins: G.coins });
+    if (G.coins < FLOOR_COINS) { const top = FLOOR_COINS - G.coins; setCoins(FLOOR_COINS); coinLine += t('res.topup', { top, floor: FLOOR_COINS }); }
     if (lb.canSubmit() && lb.nickname) lb.syncCoins(G.coins, lb.nickname);
   }
   $('resCoins').innerHTML = coinLine;
   $('resCard').classList.toggle('won', won);
-  $('resStamp').textContent = won ? '合格' : '不合格';
-  $('resTitle').textContent = won ? (record ? '驗收通過・新紀錄！' : '驗收通過') : '驗收不合格';
-  $('resReason').textContent = won ? `${lv.name}的骨架撐過了震度 ${lv.shindo} 的 10 秒地震。` : reason;
+  $('resStamp').textContent = won ? t('stamp.ok') : t('stamp.no');
+  $('resTitle').textContent = won ? (record ? t('res.passRecord') : t('res.pass')) : t('res.fail');
+  $('resReason').textContent = won ? t('res.passWhy', { name: lvt(lv, 'name'), s: sh(lv.shindo) }) : reason;
   $('resStars').innerHTML = won ? starStr(stars) : '';
-  $('resStats').innerHTML = `用了 <b>${used}</b> 支火柴` + (lv.par && won ? `　·　${stars < 3 ? `${lv.par} 支以內拿三顆星` : '三顆星達成'}　·　最佳 ${G.progress.best[lv.id]} 支` : '');
+  $('resStats').innerHTML = t('res.used', { n: used }) + (lv.par && won ? `　·　${stars < 3 ? t('res.toThree', { par: lv.par }) : t('res.three')}　·　${t('res.best', { n: G.progress.best[lv.id] })}` : '');
   const btns = $('resBtns'); btns.innerHTML = '';
   const mk = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = label; b.onclick = () => { audio.click(); fn(); }; btns.appendChild(b); };
   if (won) {
-    mk('省火柴重做', 'ghost', () => stopQuake());
-    if (G.idx < LEVELS.length - 1) mk('下一張委託', 'primary', () => startLevel(G.idx + 1));
-    else mk('全部完工！回委託清單', 'primary', () => { stopQuake(); levelsScreen(); });
+    mk(t('btn.retryLess'), 'ghost', () => stopQuake());
+    if (G.idx < LEVELS.length - 1) mk(t('btn.next'), 'primary', () => startLevel(G.idx + 1));
+    else mk(t('btn.allDone'), 'primary', () => { stopQuake(); levelsScreen(); });
   } else {
-    mk('拆掉重蓋', 'ghost', () => { stopQuake(); pushUndo(); G.design.clear(); refresh(); });
-    mk('修改設計再驗收', 'primary', () => stopQuake());
+    mk(t('btn.tearDown'), 'ghost', () => { stopQuake(); pushUndo(); G.design.clear(); refresh(); });
+    mk(t('btn.fix'), 'primary', () => stopQuake());
   }
   renderResultBoard(won, lv, used);
   G.state = 'result';
@@ -314,8 +317,8 @@ function showResult(won, reason) {
 }
 // 完工模型: the Q-version of the real building spins on a turntable before the inspection slip
 function showReveal(lv) {
-  $('revealName').textContent = lv.name;
-  $('revealWhere').textContent = [lv.place || '火柴建築師工作室', lv.real ? '真實建築：' + lv.real : ''].filter(Boolean).join('　');
+  $('revealName').textContent = lvt(lv, 'name');
+  $('revealWhere').textContent = [lvt(lv, 'place') || t('reveal.studio'), lv.real ? t('order.real', { r: lvt(lv, 'real') }) : ''].filter(Boolean).join('　');
   show('ovReveal');
   try { turntable = turntable || new Turntable($('revealCanvas')); } catch (e) { console.error(e); show('ovResult'); return; }
   turntable.show(lv.key).then(ok => { if (!ok && G.state === 'result') show('ovResult'); });
@@ -324,7 +327,7 @@ function showReveal(lv) {
 function closeReveal() { if (turntable) turntable.stop(); show('ovResult'); }
 
 // ---------------------------------------------------------------- leaderboard UI
-function rowsHTML(rows, max, unit = '支') {
+function rowsHTML(rows, max, unit = t('unit.matches')) {
   const list = document.createElement('ol'); list.className = 'board';
   const mine = rows.findIndex(r => r.me);
   rows.forEach((r, i) => {
@@ -332,8 +335,8 @@ function rowsHTML(rows, max, unit = '支') {
     if (i === max && mine > max) { const gap = document.createElement('li'); gap.className = 'gap'; gap.textContent = '⋯'; list.appendChild(gap); }
     const li = document.createElement('li'); if (r.me) li.className = 'me';
     const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = i + 1;
-    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name + (r.me ? '（你）' : '');
-    const n = document.createElement('span'); n.className = 'n'; n.textContent = r.n + ' ' + unit;
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = (r.name || t('lb.anon')) + (r.me ? t('lb.you') : '');
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = unit ? r.n + ' ' + unit : String(r.n);
     li.append(rk, nm, n); list.appendChild(li);
   });
   return list;
@@ -352,36 +355,37 @@ function paintResultBoard() {
   const { lv } = resultCtx;
   const rows = lb.ranking(lv.key);
   const list = $('resBoardList'); list.innerHTML = '';
-  if (!lb.ready) list.textContent = '讀取排行榜中…';
-  else if (!rows.length) list.textContent = '還沒有人上榜，你可以當第一名。';
+  if (!lb.ready) list.textContent = t('lb.loading');
+  else if (!rows.length) list.textContent = t('lb.emptyFirst');
   else list.appendChild(rowsHTML(rows, 5));
   const form = $('resBoardForm'), note = $('resBoardNote');
   form.hidden = true; note.textContent = '';
-  if (!lb.uid) note.textContent = '登入 Claude 後才能上傳成績。';
-  else if (lb.readOnly) note.textContent = '你目前只能查看排行榜，沒有上傳權限。';
+  if (!lb.uid) note.textContent = t('lb.login');
+  else if (lb.readOnly) note.textContent = t('lb.readonly');
   else if (!lb.nickname) { form.hidden = false; }
   else if (resultCtx.status === 'done') {
     const mr = lb.myRank(resultCtx.lv.key);
-    note.textContent = resultCtx.improved ? (mr ? `已上傳！目前排第 ${mr.rank} 名（共 ${mr.of} 人）` : '已上傳！')
-      : (mr ? `你在這關的紀錄是 ${mr.n} 支，排第 ${mr.rank} 名` : '這次沒有比你的紀錄少');
+    note.textContent = resultCtx.improved ? (mr ? t('lb.uploadedRank', mr) : t('lb.uploaded'))
+      : (mr ? t('lb.myRank', mr) : t('lb.notBetter'));
   } else if (resultCtx.status) note.textContent = resultCtx.status;
 }
 async function uploadScore(name) {
   if (!resultCtx) return;
   const ctx = resultCtx;
-  ctx.status = '上傳中…'; paintResultBoard();
+  ctx.status = t('lb.uploading'); paintResultBoard();
   const r = await lb.submit(ctx.lv.key, ctx.used, name, ctx.design, G.coins);
   if (resultCtx !== ctx) return;
   if (r.ok) { ctx.status = 'done'; ctx.improved = r.improved; }
-  else ctx.status = r.reason === 'readonly' ? '' : r.reason === 'full' ? '排行榜已滿，無法再新增玩家。' : '上傳失敗，請稍後再試。';
+  else ctx.status = r.reason === 'readonly' ? '' : r.reason === 'full' ? t('lb.full') : t('lb.error');
   paintResultBoard();
 }
 function boardScreen(levelIdx) {
   const sel = $('boardLevel');
-  if (!sel.options.length) {
-    const c = document.createElement('option'); c.value = '__coins'; c.textContent = '金幣總榜'; sel.appendChild(c);
-    for (const lv of LEVELS) { const o = document.createElement('option'); o.value = lv.key; o.textContent = `${lv.id}　${lv.name}`; sel.appendChild(o); }
-  }
+  const keep = sel.value;
+  sel.innerHTML = '';   // rebuilt each time so it follows the language
+  const c = document.createElement('option'); c.value = '__coins'; c.textContent = t('lb.coinBoard'); sel.appendChild(c);
+  for (const lv of LEVELS) { const o = document.createElement('option'); o.value = lv.key; o.textContent = `${lv.id}　${lvt(lv, 'name')}`; sel.appendChild(o); }
+  if (keep) sel.value = keep;
   if (levelIdx !== undefined) sel.value = LEVELS[levelIdx].key;
   G.prevState = G.state; G.state = 'board';
   show('ovBoard');
@@ -394,10 +398,10 @@ function paintBoard() {
   const lv = LEVELS.find(l => l.key === key);
   const rows = coinsBoard ? lb.coinRanking() : lb.ranking(key), list = $('boardList');
   list.innerHTML = '';
-  if (!lb.ready) list.textContent = '讀取排行榜中…';
-  else if (!rows.length) list.textContent = '這關還沒有人上榜。';
-  else list.appendChild(rowsHTML(rows, 20, coinsBoard ? '金幣' : '支'));
-  $('boardInfo').textContent = coinsBoard ? '金幣越多排越前面：省下的火柴每支換 2 金幣' : `震度 ${lv.shindo} · 用最少火柴撐過 10 秒的人排前面`;
+  if (!lb.ready) list.textContent = t('lb.loading');
+  else if (!rows.length) list.textContent = t('lb.emptyLevel');
+  else list.appendChild(rowsHTML(rows, 20, coinsBoard ? t('unit.coins') : t('unit.matches')));
+  $('boardInfo').textContent = coinsBoard ? t('lb.coinInfo') : t('lb.levelInfo', { s: sh(lv.shindo) });
 }
 
 // ---------------------------------------------------------------- input
@@ -455,9 +459,9 @@ function onMove(e) {
   if (dr.start && G.state === 'build') {
     const w = view.screenToWorld(e.clientX, e.clientY);
     dr.pv = G.design.preview(dr.start, w.x, w.y);
-    if (dr.pv && dr.pv.ok && (G.design.used() + 1) * MATCH_COST > G.coins) { dr.pv.ok = false; dr.pv.reason = '金幣不夠了'; }
+    if (dr.pv && dr.pv.ok && (G.design.used() + 1) * MATCH_COST > G.coins) { dr.pv.ok = false; dr.pv.reason = t('why.broke'); dr.pv.code = null; }
     view.setGhost(dr.pv);
-    const reason = dr.pv && !dr.pv.ok ? dr.pv.reason : '';
+    const reason = dr.pv && !dr.pv.ok ? why(dr.pv) : '';
     if (reason && reason !== G.lastReason) toast(reason, 1100);
     G.lastReason = reason;
   }
@@ -476,7 +480,7 @@ function onUp(e) {
   if (G.pointers.size) return;
   G.drag = null;
   if (dr.pan) {
-    if (dr.moved < 8 && G.state === 'build' && G.tool !== 'delete') toast('從紅色錨點或火柴上按住拖曳', 1400);
+    if (dr.moved < 8 && G.state === 'build' && G.tool !== 'delete') toast(t('toast.tap'), 1400);
     return;
   }
   view.setGhost(null);
@@ -539,21 +543,26 @@ function bindUI() {
   on('btnMenu', () => { audio.click(); if (G.state === 'sim' || G.state === 'result') stopQuake(); levelsScreen(); });
   on('btnHelp', () => { audio.click(); if (G.state === 'build') { G.state = 'intro'; show('ovIntro'); } });
   on('toolMatch', () => { if (G.state === 'build') { audio.click(); setTool('match'); } });
-  on('toolDelete', () => { if (G.state === 'build') { audio.click(); setTool(G.tool === 'delete' ? 'match' : 'delete'); if (G.tool === 'delete') toast('點一下火柴把它拿掉', 1300); } });
+  on('toolDelete', () => { if (G.state === 'build') { audio.click(); setTool(G.tool === 'delete' ? 'match' : 'delete'); if (G.tool === 'delete') toast(t('toast.erase'), 1300); } });
   on('btnUndo', () => { if (G.state === 'build' && G.undo.length) { audio.remove(); G.design.restore(G.undo.pop()); refresh(); } });
   on('btnClear', () => {
     if (G.state !== 'build' || !G.design.used()) return;
     const b = $('btnClear');
-    if (!b.classList.contains('confirm')) { b.classList.add('confirm'); $('clearLabel').textContent = '確定？'; setTimeout(() => { b.classList.remove('confirm'); $('clearLabel').textContent = '清空'; }, 2200); return; }
-    b.classList.remove('confirm'); $('clearLabel').textContent = '清空';
+    if (!b.classList.contains('confirm')) { b.classList.add('confirm'); $('clearLabel').textContent = t('clear.confirm'); setTimeout(() => { b.classList.remove('confirm'); $('clearLabel').textContent = t('tool.clear'); }, 2200); return; }
+    b.classList.remove('confirm'); $('clearLabel').textContent = t('tool.clear');
     pushUndo(); G.design.clear(); audio.remove(); refresh();
   });
   on('btnPlay', () => { if (G.state === 'build') startQuake(); else if (G.state === 'sim') stopQuake(); });
-  const sync = () => { $('btnSound').classList.toggle('off', audio.muted); $('btnSoundT').textContent = audio.muted ? '音效：關' : '音效：開'; };
+  const sync = () => {
+    $('btnSound').classList.toggle('off', audio.muted);
+    $('btnSoundT').textContent = t(audio.muted ? 'snd.off' : 'snd.on');
+    $('btnMusicT').textContent = t(audio.musicOn ? 'mus.on' : 'mus.off');
+  };
   on('btnSound', () => { audio.setMuted(!audio.muted); sync(); });
   on('btnSoundT', () => { audio.setMuted(!audio.muted); sync(); });
-  on('btnMusicT', () => { audio.setMusic(!audio.musicOn); $('btnMusicT').textContent = audio.musicOn ? '音樂：開' : '音樂：關'; });
-  sync(); $('btnMusicT').textContent = audio.musicOn ? '音樂：開' : '音樂：關';
+  on('btnMusicT', () => { audio.setMusic(!audio.musicOn); sync(); });
+  on('btnLang', () => { audio.click(); setLang(LANG === 'en' ? 'zh' : 'en'); $('btnLang').lang = LANG === 'en' ? 'zh-Hant' : 'en'; sync(); });
+  sync();
   const rs = () => { measurePads(); view.resize(); };
   addEventListener('resize', rs);
   addEventListener('orientationchange', () => setTimeout(rs, 250));
@@ -579,6 +588,7 @@ function fatal(msg) {
 
 export async function boot(data = {}) {
   window.__mqBooted = true;
+  applyStatic();
   try {
     const models = await loadModels();
     view = new View($('gl'), models);
@@ -601,7 +611,7 @@ export async function boot(data = {}) {
     requestAnimationFrame(loop);
   } catch (err) {
     console.error(err);
-    fatal('3D 畫面啟動失敗：' + (err && err.message ? err.message : err));
+    fatal(t('err.3d', { m: err && err.message ? err.message : err }));
   }
 }
-window.addEventListener('error', e => { if (!view) fatal('載入錯誤：' + e.message); });
+window.addEventListener('error', e => { if (!view) fatal(t('err.load', { m: e.message })); });

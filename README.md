@@ -6,7 +6,9 @@
 
 **線上玩：<https://brycekuo-proj.github.io/match-architect/play.html>**　｜　首頁：<https://brycekuo-proj.github.io/match-architect/>
 
-免費、瀏覽器直接玩，手機和電腦都可以。`play.html` 是單一檔案、可離線。
+免費、瀏覽器直接玩，手機和電腦都可以。`play.html` 是單一檔案、可離線。遊戲有繁體中文和英文，依瀏覽器語言自動切換，標題畫面也可以手動切換。
+
+> **English:** *Match Architect* is a free browser game for AI Browser Game Jam 5. Take building jobs from around the world, frame them out of fixed-length matchsticks, and survive a 10-second earthquake: fewer matches, more stars. If a glue joint snaps, fire runs through the matches and the whole thing comes down; pass, and a cute 3D model of the real landmark spins on a turntable. The game switches to English for non-Chinese browsers (there's a language button on the title screen). itch.io page text, cover and screenshots: [`docs/itch/`](docs/itch/ITCH_PAGE.md).
 
 ## 玩法
 - 每關是一張**委託單**：工程名稱、地點、震度、任務要求和達成獎勵。
@@ -43,6 +45,7 @@
 ```bash
 npm install
 npm run build   # 產生 dist/match-architect.html、dist/itch/index.html，並複製成根目錄的 play.html
+cd dist/itch && zip ../match-architect-itch.zip index.html   # itch.io 上傳用的 zip
 npm test        # 每關參考解必須撐過該關震度；太細、太窄的錯誤解必須倒；倒下的建築必須燒起來、垮下來
 python3 test/zoom.py   # 縮放按鈕、雙指捏合、滾輪（需要 Playwright）
 ```
@@ -56,11 +59,13 @@ python3 test/zoom.py   # 縮放按鈕、雙指捏合、滾輪（需要 Playwrigh
 | `src/render3d.js` | Three.js 畫面 |
 | `src/main.js` | 操作、流程、介面 |
 | `src/turntable.js` | 過關時旋轉的 Q 版建築模型 |
+| `src/i18n.js` | 中英文介面文字 |
 | `src/leaderboard.js` | 排行榜（可換成其他後端） |
 | `src/audio.js` | 合成音效與音樂 |
 | `src/template.html` | 遊戲頁面與樣式 |
 | `blender/` | 火柴、Q 版建築模型與封面的 Blender 腳本 |
 | `assets/landmarks/` | 13 個 Q 版建築模型（GLB，建置時嵌入遊戲） |
 | `docs/LEVEL_PLAN.md` | 50 關企劃 |
+| `docs/itch/` | itch.io 報名素材：英文頁面文字、封面、截圖 |
 
 調整手感：`src/sim.js` 的 `PARAMS.breakForce`（膠點強度）、`SHINDO`（各震度的振幅與頻率）、每關的 `shindo` 與 `par`。改完跑 `npm test`。

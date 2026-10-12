@@ -1,4 +1,4 @@
-<title>火柴建築師</title>
+<title>Match Architect · 火柴建築師</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Huninn&family=Noto+Sans+TC:wght@500;700;900&display=swap">
@@ -84,6 +84,13 @@ svg { display: block; }
   .matchtray { order: 9; flex: 1 1 100%; justify-content: center; height: 38px; margin-left: 0; }
   .label-tag { flex: 1 1 0; max-width: none; font-size: 16px; padding: 0 10px; }
   .label-tag em { margin-left: 6px; padding: 4px 7px; font-size: 12px; }
+}
+
+/* English labels run longer than Chinese ones */
+.lang-en .label-tag { letter-spacing: 0; }
+@media (max-width: 620px) {
+  .lang-en .label-tag { font-size: 14px; padding: 0 8px; }
+  .lang-en .label-tag em { margin-left: 5px; padding: 4px 6px; font-size: 11px; }
 }
 
 /* ---------- toast ---------- */
@@ -369,18 +376,18 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
 </style>
 
 <div id="app">
-  <canvas id="gl" aria-label="火柴建築師遊戲畫面"></canvas>
+  <canvas id="gl" aria-label="火柴建築師遊戲畫面" data-ta="app.canvas"></canvas>
 
   <header id="hud" hidden>
-    <button class="icon" id="btnMenu" aria-label="委託清單">
+    <button class="icon" id="btnMenu" aria-label="委託清單" data-ta="hud.menu">
       <svg width="22" height="22" viewBox="0 0 22 22" fill="var(--ink)"><rect x="1" y="1" width="8" height="8" rx="2"/><rect x="13" y="1" width="8" height="8" rx="2"/><rect x="1" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
     </button>
     <div class="label-tag"><span id="lvTitle">1　三角形</span><em id="shindoChip">震度 3</em></div>
-    <div class="matchtray" aria-label="火柴數量與星星"><span id="matchBox"></span><b id="matchCount">0/0</b><span class="sep"></span><span class="starmini" aria-hidden="true">★</span><b id="starCount">0/1</b><span class="sep"></span><i class="coin" aria-hidden="true"></i><b id="coinHud">30</b><small id="coinCost" class="cost"></small></div>
-    <button class="icon" id="btnHelp" aria-label="看委託單">
+    <div class="matchtray" aria-label="火柴數量與星星" data-ta="hud.tray"><span id="matchBox"></span><b id="matchCount">0/0</b><span class="sep"></span><span class="starmini" aria-hidden="true">★</span><b id="starCount">0/1</b><span class="sep"></span><i class="coin" aria-hidden="true"></i><b id="coinHud">30</b><small id="coinCost" class="cost"></small></div>
+    <button class="icon" id="btnHelp" aria-label="看委託單" data-ta="hud.help">
       <svg width="22" height="22" viewBox="0 0 22 22"><text x="11" y="17" text-anchor="middle" font-family="Bungee, sans-serif" font-size="17" fill="var(--ink)">?</text></svg>
     </button>
-    <button class="icon" id="btnSound" aria-label="音效開關">
+    <button class="icon" id="btnSound" aria-label="音效開關" data-ta="hud.sound">
       <svg width="24" height="22" viewBox="0 0 24 22" fill="none" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h4l5-4v14l-5-4H3z" fill="var(--ink)"/><path class="wave" d="M16 7.5a5 5 0 0 1 0 7M18.8 4.8a9 9 0 0 1 0 12.4"/></svg>
     </button>
   </header>
@@ -395,99 +402,99 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
 
   <nav id="toolbar" hidden>
     <div class="tools">
-      <button class="tool on" id="toolMatch" aria-label="放火柴">
+      <button class="tool on" id="toolMatch" aria-label="放火柴" data-ta="tool.matchA">
         <svg viewBox="0 0 30 30"><path d="M7 25 L23 7" stroke="#e9c48b" stroke-width="5" stroke-linecap="round"/><path d="M7 25 L23 7" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" opacity=".35"/><circle cx="23.5" cy="6.5" r="4.6" fill="#d9392b" stroke="var(--ink)" stroke-width="1.8"/></svg>
-        <span>火柴</span>
+        <span data-t="tool.match">火柴</span>
       </button>
-      <button class="tool" id="toolDelete" aria-label="刪除火柴">
+      <button class="tool" id="toolDelete" aria-label="刪除火柴" data-ta="tool.deleteA">
         <svg viewBox="0 0 30 30"><path d="M6 19 L16 7 L25 15 L17 24 H10 Z" fill="#f2a3b2" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M11 13 L20 21" stroke="var(--ink)" stroke-width="2"/><path d="M4 26h22" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>
-        <span>刪除</span>
+        <span data-t="tool.delete">刪除</span>
       </button>
-      <button class="tool" id="btnUndo" aria-label="復原">
+      <button class="tool" id="btnUndo" aria-label="復原" data-ta="tool.undo">
         <svg viewBox="0 0 30 30" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 8 L5 13 L10 18"/><path d="M5 13h12a7 7 0 0 1 0 14h-4"/></svg>
-        <span>復原</span>
+        <span data-t="tool.undo">復原</span>
       </button>
-      <button class="tool" id="btnClear" aria-label="清空">
+      <button class="tool" id="btnClear" aria-label="清空" data-ta="tool.clear">
         <svg viewBox="0 0 30 30" fill="none" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h18M12 9V6h6v3M8 9l1.5 16h11L22 9"/><path d="M13 13v8M17 13v8"/></svg>
-        <span id="clearLabel">清空</span>
+        <span id="clearLabel" data-t="tool.clear">清空</span>
       </button>
     </div>
-    <button class="play" id="btnPlay"><span class="head"></span><span id="playLabel">開始地震</span></button>
+    <button class="play" id="btnPlay"><span class="head"></span><span id="playLabel" data-t="play.start">開始地震</span></button>
   </nav>
 
-  <div id="zoomCtl" role="group" aria-label="縮放畫面" hidden>
-    <button class="icon" id="zoomIn" aria-label="放大" title="放大（+）">
+  <div id="zoomCtl" role="group" aria-label="縮放畫面" data-ta="zoom.group" hidden>
+    <button class="icon" id="zoomIn" aria-label="放大" title="放大（+）" data-ta="zoom.in" data-tt="zoom.inT">
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"><path d="M11 4v14M4 11h14"/></svg>
     </button>
-    <button class="icon" id="zoomOut" aria-label="縮小" title="縮小（−）">
+    <button class="icon" id="zoomOut" aria-label="縮小" title="縮小（−）" data-ta="zoom.out" data-tt="zoom.outT">
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"><path d="M4 11h14"/></svg>
     </button>
-    <button class="icon" id="zoomFit" aria-label="看整棟建築" title="看整棟建築（0）">
+    <button class="icon" id="zoomFit" aria-label="看整棟建築" title="看整棟建築（0）" data-ta="zoom.fit" data-tt="zoom.fitT">
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V3h5M14 3h5v5M19 14v5h-5M8 19H3v-5"/></svg>
     </button>
   </div>
 
   <section class="ov" id="ovLoading">
-    <div class="loader"><div class="m"></div><span>正在搬火柴…</span></div>
+    <div class="loader"><div class="m"></div><span data-t="loading">正在搬火柴…</span></div>
   </section>
 
   <section class="ov" id="ovTitle" hidden>
-    <div class="logo"><h1>火柴建築師</h1><span class="en">MATCH ARCHITECT</span></div>
+    <div class="logo"><h1 data-th="title.logo">火柴建築師</h1><span class="en" data-t="title.sub">MATCH ARCHITECT</span></div>
     <div class="titlebox">
-      <p class="tagline">接下世界各地的委託，用最少的火柴搭出建築骨架，撐過 10 秒大地震</p>
+      <p class="tagline" data-t="title.tagline">接下世界各地的委託，用最少的火柴搭出建築骨架，撐過 10 秒大地震</p>
       <div class="btnrow">
-        <button class="btn primary" id="btnStart">開始工作</button>
-        <button class="btn ghost" id="btnLevels">委託清單</button>
+        <button class="btn primary" id="btnStart" data-t="title.start">開始工作</button>
+        <button class="btn ghost" id="btnLevels" data-t="title.levels">委託清單</button>
       </div>
-      <button class="btn teal" id="btnBoard" hidden>排行榜：誰用的火柴最少</button>
-      <p class="wallet"><i class="coin" aria-hidden="true"></i>金幣 <b id="coinTitle">30</b></p>
-      <div class="toggles"><button class="chip" id="btnSoundT">音效：開</button><button class="chip" id="btnMusicT">音樂：開</button></div>
-      <p class="jam">AI Browser Game Jam 5 · 火柴 3D 模型由 Blender 製作</p>
+      <button class="btn teal" id="btnBoard" data-t="title.board" hidden>排行榜：誰用的火柴最少</button>
+      <p class="wallet"><i class="coin" aria-hidden="true"></i><span data-t="title.coins">金幣</span> <b id="coinTitle">30</b></p>
+      <div class="toggles"><button class="chip" id="btnSoundT">音效：開</button><button class="chip" id="btnMusicT">音樂：開</button><button class="chip" id="btnLang" data-t="lang.other" lang="en">English</button></div>
+      <p class="jam" data-t="title.jam">AI Browser Game Jam 5 · 火柴 3D 模型由 Blender 製作</p>
     </div>
   </section>
 
   <section class="ov" id="ovLevels" hidden>
     <div class="card">
-      <h2>委託清單</h2>
+      <h2 data-t="levels.title">委託清單</h2>
       <div id="levelGrid"></div>
-      <div class="btnrow"><button class="btn ghost" id="btnLevelsBack">回標題</button></div>
+      <div class="btnrow"><button class="btn ghost" id="btnLevelsBack" data-t="btn.back">回標題</button></div>
     </div>
   </section>
 
   <section class="ov" id="ovIntro" hidden>
     <div class="card slip" id="orderCard">
       <div class="sliphead">
-        <span class="slipno">委託單　No.<b id="orderNo">001</b></span>
+        <span class="slipno"><span data-t="order.no">委託單</span>　No.<b id="orderNo">001</b></span>
         <span class="stamp" id="orderStamp">震度 3</span>
       </div>
-      <div class="slipfield"><span>工程名稱</span><h2 id="introName">三角形</h2></div>
-      <div class="slipfield"><span>委託地點</span><p><b id="introTag">教學</b><small id="introReal"></small></p></div>
-      <div class="slipfield"><span>工程說明</span><p id="introDesc"></p></div>
-      <div class="slipbox"><h3>任務要求</h3><ul id="orderReq"></ul></div>
-      <div class="slipbox reward"><h3>達成獎勵</h3><ul id="orderReward"></ul></div>
+      <div class="slipfield"><span data-t="order.name">工程名稱</span><h2 id="introName">三角形</h2></div>
+      <div class="slipfield"><span data-t="order.place">委託地點</span><p><b id="introTag">教學</b><small id="introReal"></small></p></div>
+      <div class="slipfield"><span data-t="order.brief">工程說明</span><p id="introDesc"></p></div>
+      <div class="slipbox"><h3 data-t="order.req">任務要求</h3><ul id="orderReq"></ul></div>
+      <div class="slipbox reward"><h3 data-t="order.reward">達成獎勵</h3><ul id="orderReward"></ul></div>
       <p class="best" id="introBest" hidden></p>
-      <p class="hint"><b>工頭提示</b><span id="introHint"></span></p>
-      <details class="howto" id="howto"><summary>怎麼搭火柴</summary><p>從紅色錨點或火柴端點按住拖曳，放開就放下一支火柴；在火柴中段按住可以黏斜撐。單指拖空白處移動畫面；兩指捏合或右邊的 ＋／－ 可以縮放（電腦也能用滾輪）。</p></details>
-      <div class="btnrow"><button class="btn primary" id="btnIntroGo">接下委託</button></div>
+      <p class="hint"><b data-t="order.tip">工頭提示</b><span id="introHint"></span></p>
+      <details class="howto" id="howto"><summary data-t="order.howto">怎麼搭火柴</summary><p data-t="order.howtoText">從紅色錨點或火柴端點按住拖曳，放開就放下一支火柴；在火柴中段按住可以黏斜撐。單指拖空白處移動畫面；兩指捏合或右邊的 ＋／－ 可以縮放（電腦也能用滾輪）。</p></details>
+      <div class="btnrow"><button class="btn primary" id="btnIntroGo" data-t="order.go">接下委託</button></div>
     </div>
   </section>
 
   <section class="ov" id="ovReveal" hidden>
     <div class="reveal">
       <div class="rays" aria-hidden="true"></div>
-      <span class="chip">完工模型</span>
-      <canvas id="revealCanvas" aria-label="完工模型，可以用手指轉動"></canvas>
+      <span class="chip" data-t="reveal.chip">完工模型</span>
+      <canvas id="revealCanvas" aria-label="完工模型，可以用手指轉動" data-ta="reveal.canvas"></canvas>
       <h2 id="revealName">艾菲爾鐵塔</h2>
       <p class="where" id="revealWhere"></p>
-      <p class="rvhint">用手指轉轉看</p>
-      <button class="btn primary" id="btnRevealGo">看驗收單</button>
+      <p class="rvhint" data-t="reveal.hint">用手指轉轉看</p>
+      <button class="btn primary" id="btnRevealGo" data-t="reveal.go">看驗收單</button>
     </div>
   </section>
 
   <section class="ov" id="ovResult" hidden>
     <div class="card slip" id="resCard">
       <div class="sliphead">
-        <span class="slipno">驗收單　No.<b id="resNo">001</b></span>
+        <span class="slipno"><span data-t="res.no">驗收單</span>　No.<b id="resNo">001</b></span>
         <span class="stamp" id="resStamp">合格</span>
       </div>
       <h2 id="resTitle">驗收通過</h2>
@@ -496,11 +503,11 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
       <p id="resStats"></p>
       <p id="resCoins" class="rescoins"></p>
       <section class="resboard" id="resBoard" hidden>
-        <h3>這項工程的排行榜 <small>火柴越少越前面</small></h3>
+        <h3 data-th="res.boardTitle">這項工程的排行榜 <small>火柴越少越前面</small></h3>
         <div id="resBoardList"></div>
         <form id="resBoardForm" class="nickform" hidden>
-          <label for="nickInput">取個名字上榜</label>
-          <div class="nickrow"><input id="nickInput" maxlength="12" autocomplete="nickname" placeholder="最多 12 個字"><button class="btn primary" type="submit">上傳成績</button></div>
+          <label for="nickInput" data-t="res.nick">取個名字上榜</label>
+          <div class="nickrow"><input id="nickInput" maxlength="12" autocomplete="nickname" placeholder="最多 12 個字" data-tp="res.nickPh"><button class="btn primary" type="submit" data-t="res.upload">上傳成績</button></div>
         </form>
         <p class="boardnote" id="resBoardNote"></p>
       </section>
@@ -510,20 +517,20 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
 
   <section class="ov" id="ovBoard" hidden>
     <div class="card">
-      <h2>排行榜</h2>
-      <label class="boardpick" for="boardLevel">榜單<select id="boardLevel"></select></label>
+      <h2 data-t="board.title">排行榜</h2>
+      <label class="boardpick" for="boardLevel"><span data-t="board.pick">榜單</span><select id="boardLevel"></select></label>
       <p class="boardinfo" id="boardInfo"></p>
       <div id="boardList"></div>
-      <div class="btnrow"><button class="btn ghost" id="btnBoardBack">回標題</button></div>
+      <div class="btnrow"><button class="btn ghost" id="btnBoardBack" data-t="btn.back">回標題</button></div>
     </div>
   </section>
 
   <section class="ov" id="ovError" hidden>
     <div class="card">
-      <h2>遊戲沒有啟動</h2>
-      <p id="errMsg">3D 引擎載入失敗。</p>
-      <p>請確認網路連線後重新整理頁面；如果還是不行，請換用最新版 Safari 或 Chrome。</p>
-      <div class="btnrow"><button class="btn primary" onclick="location.reload()">重新整理</button></div>
+      <h2 data-t="err.title">遊戲沒有啟動</h2>
+      <p id="errMsg" data-t="err.msg">3D 引擎載入失敗。</p>
+      <p data-t="err.help">請確認網路連線後重新整理頁面；如果還是不行，請換用最新版 Safari 或 Chrome。</p>
+      <div class="btnrow"><button class="btn primary" onclick="location.reload()" data-t="err.reload">重新整理</button></div>
     </div>
   </section>
 </div>
@@ -534,7 +541,10 @@ setTimeout(function () {
   var ids = ['ovLoading', 'ovTitle', 'ovLevels', 'ovIntro', 'ovResult'];
   ids.forEach(function (i) { var e = document.getElementById(i); if (e) e.hidden = true; });
   var err = document.getElementById('ovError'); if (err) err.hidden = false;
-  var m = document.getElementById('errMsg'); if (m) m.textContent = '等了 20 秒，3D 引擎還沒載入完成。';
+  var en = true; try { en = !/^zh/i.test(localStorage.getItem('mq_lang') || navigator.language || ''); } catch (e) {}
+  var m = document.getElementById('errMsg'); if (m) m.textContent = en ? 'The 3D engine still has not loaded after 20 seconds.' : '等了 20 秒，3D 引擎還沒載入完成。';
+  if (en) { var tx = { 'err.title': "The game didn't start", 'err.help': 'Check your connection and reload. If it still fails, try the latest Safari or Chrome.', 'err.reload': 'Reload' };
+    for (var k in tx) { var e2 = document.querySelector('[data-t="' + k + '"]'); if (e2) e2.textContent = tx[k]; } }
 }, 20000);
 </script>
 <!--IMPORTMAP-->

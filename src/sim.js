@@ -34,60 +34,60 @@ const row = n => n * T;
 const range = (a, b) => { const r = []; for (let i = a; i <= b; i++) r.push([i, 0]); return r; };
 const BASE = [  // each entry is one commission (委託)
   {
-    id: 1, key: 'triangle', name: '三角形', tag: '教學', shindo: '3', par: 3,
+    id: 1, key: 'triangle', en: {"name": "Triangle", "desc": "Build a triangle whose tip touches the star. Survive the 10-second quake and you pass! Three matches is all it takes.", "hint": "Drag a match out of a red anchor. Triangles are the sturdiest shape there is."}, name: '三角形', tag: '教學', shindo: '3', par: 3,
     desc: '搭一個三角形，頂點碰到星星。地震 10 秒不倒就過關！3 支火柴就做得到。',
     hint: '從紅色錨點拖出火柴。三角形是最穩的形狀。',
     anchors: [[0, 0], [1, 0]], stars: [[0.5, T]],
   },
   {
-    id: 2, key: 'square', name: '四方形', tag: '教學', shindo: '4', par: 5,
+    id: 2, key: 'square', en: {"name": "Square", "desc": "Build a square that holds up the star. A plain four-sided square wobbles over, so add a diagonal brace!", "hint": "Press on the middle of a match and drag to glue a new match onto it as a brace."}, name: '四方形', tag: '教學', shindo: '4', par: 5,
     desc: '搭一個四方形撐住星星。只有 4 邊的四方形會晃倒，要加一支斜撐！',
     hint: '在柱子中段按住拖曳，可以把火柴黏在另一支火柴身上做斜撐。',
     anchors: [[0, 0], [1, 0]], stars: [[0.5, 1]],
   },
   {
-    id: 3, key: 'twofloor', name: '兩層樓', tag: '教學', shindo: '4', par: 9,
+    id: 3, key: 'twofloor', en: {"name": "Two Floors", "desc": "Stack two squares, hold the star up on the roof, and survive the 10-second quake!", "hint": "Every floor needs a brace of its own."}, name: '兩層樓', tag: '教學', shindo: '4', par: 9,
     desc: '蓋兩層四方形，屋頂撐住星星，撐過 10 秒地震！',
     hint: '每一層都需要自己的斜撐。',
     anchors: [[0, 0], [1, 0]], stars: [[0.5, 2]],
   },
   {
-    id: 4, key: 'sphinx', name: '獅身人面像', place: '埃及 · 吉薩', real: '高約 20 公尺，身長約 73 公尺', shindo: '4', par: 8, biome: 'sand',
+    id: 4, key: 'sphinx', en: {"name": "Great Sphinx", "place": "Giza, Egypt", "real": "about 20 m tall and 73 m long", "desc": "A long, low lion. There is a star on its head and another on its back, and both have to stay up.", "hint": "A row of triangles makes a nice long body."}, name: '獅身人面像', place: '埃及 · 吉薩', real: '高約 20 公尺，身長約 73 公尺', shindo: '4', par: 8, biome: 'sand',
     desc: '又矮又長的獅子。頭頂和背上各有一顆星星，兩顆都要撐住。',
     hint: '一排三角形就能撐出長長的身體。',
     anchors: range(0, 3), stars: [[1, row(2)], [2.5, row(1)]],
     sil: [[0, 0], [1, 0], [1, .27], [.9, .45], [.5, .45], [.46, .72], [.44, .92], [.37, 1], [.28, .95], [.25, .72], [.19, .57], [.06, .45], [0, .22]],
   },
   {
-    id: 5, key: 'pyramid', name: '古夫金字塔', place: '埃及 · 吉薩', real: '原高約 146 公尺', shindo: '5弱', par: 12, biome: 'sand',
+    id: 5, key: 'pyramid', en: {"name": "Great Pyramid", "place": "Giza, Egypt", "real": "originally about 146 m tall", "desc": "Built 4,500 years ago. The tip has to touch the star.", "hint": "Every new joint needs two matches holding it from different directions."}, name: '古夫金字塔', place: '埃及 · 吉薩', real: '原高約 146 公尺', shindo: '5弱', par: 12, biome: 'sand',
     desc: '四千五百年前的金字塔。塔尖要碰到星星。',
     hint: '每個新的接點都要有兩支火柴從不同方向撐住。',
     anchors: range(0, 3), stars: [[1.5, row(3)]],
     sil: [[0, 0], [1, 0], [.5, 1]],
   },
   {
-    id: 6, key: 'pisa', name: '比薩斜塔', place: '義大利 · 比薩', real: '高約 56 公尺，傾斜約 4 度', shindo: '5強', par: 10,
+    id: 6, key: 'pisa', en: {"name": "Leaning Tower of Pisa", "place": "Pisa, Italy", "real": "about 56 m tall, leaning about 4°", "desc": "The star is up and to the right, so the tower has to lean. With its weight off to one side, it is the easiest one to topple.", "hint": "Stack triangles diagonally upward, like a slanted ribbon."}, name: '比薩斜塔', place: '義大利 · 比薩', real: '高約 56 公尺，傾斜約 4 度', shindo: '5強', par: 10,
     desc: '星星在右上方，塔要斜著蓋。重心歪一邊，地震時最容易倒。',
     hint: '斜著往上疊三角形，像一條斜斜的帶子。',
     anchors: range(0, 2), stars: [[1.5, row(3)]],
     sil: [[.06, 0], [.4, 0], [.95, .9], [.95, 1], [.66, 1], [.62, .9]],
   },
   {
-    id: 7, key: 'eiffel', name: '艾菲爾鐵塔', place: '法國 · 巴黎', real: '高約 330 公尺', shindo: '6弱', par: 20,
+    id: 7, key: 'eiffel', en: {"name": "Eiffel Tower", "place": "Paris, France", "real": "about 330 m tall", "desc": "Four legs spread wide with an arch in the middle. The tip has to touch the star.", "hint": "Build one slanted leg on each side and join them at the top."}, name: '艾菲爾鐵塔', place: '法國 · 巴黎', real: '高約 330 公尺', shindo: '6弱', par: 20,
     desc: '四隻腳張開的鐵塔，中間是拱門。塔尖要碰到星星。',
     hint: '兩邊各蓋一隻斜腳，在上面合起來。',
     anchors: [[0, 0], [1, 0], [3, 0], [4, 0]], stars: [[2, row(4)]],
     sil: [[0, 0], [.25, 0], [.33, .17], [.5, .24], [.67, .17], [.75, 0], [1, 0], [.62, .55], [.55, .82], [.515, 1], [.485, 1], [.45, .82], [.38, .55]],
   },
   {
-    id: 8, key: 'tokyotower', name: '東京鐵塔', place: '日本 · 東京', real: '高 333 公尺', shindo: '6強', par: 28,
+    id: 8, key: 'tokyotower', en: {"name": "Tokyo Tower", "place": "Tokyo, Japan", "real": "333 m tall", "desc": "Taller and slimmer than the Eiffel Tower, and the quake is stronger too.", "hint": "Spread the legs on the lower half, then run a straight column of triangles up the top half."}, name: '東京鐵塔', place: '日本 · 東京', real: '高 333 公尺', shindo: '6強', par: 28,
     desc: '比艾菲爾更高更細的紅白鐵塔，地震也更強了。',
     hint: '下半段張開腳，上半段用一條直直往上的三角形柱子。',
     anchors: [[0, 0], [1, 0], [3, 0], [4, 0]], stars: [[2, row(6)]],
     sil: [[0, 0], [.27, 0], [.5, .14], [.73, 0], [1, 0], [.66, .42], [.6, .66], [.56, .78], [.53, .9], [.51, 1], [.49, 1], [.47, .9], [.44, .78], [.4, .66], [.34, .42]],
   },
   {
-    id: 9, key: 'pearl', name: '東方明珠', place: '中國 · 上海', real: '高約 468 公尺', shindo: '6強', par: 28,
+    id: 9, key: 'pearl', en: {"name": "Oriental Pearl Tower", "place": "Shanghai, China", "real": "about 468 m tall", "desc": "A tall column threaded through two big pearls. Hold up both the upper and the lower star.", "hint": "Build a wide base first, then a column of triangles on top of it."}, name: '東方明珠', place: '中國 · 上海', real: '高約 468 公尺', shindo: '6強', par: 28,
     desc: '一根高柱串著兩顆大珠子。上下兩顆星星都要撐住。',
     hint: '先蓋寬寬的底座，再往上接一條三角形柱子。',
     anchors: range(0, 3), stars: [[1.5, row(3)], [1.5, row(7)]],
@@ -95,28 +95,28 @@ const BASE = [  // each entry is one commission (委託)
     circles: [[1.5, row(3), 0.7], [1.5, row(7) - 0.1, 0.45]],
   },
   {
-    id: 10, key: 'taipei101', name: '台北 101', place: '台灣 · 台北', real: '高 508 公尺', shindo: '6強', par: 50,
+    id: 10, key: 'taipei101', en: {"name": "Taipei 101", "place": "Taipei, Taiwan", "real": "508 m tall", "desc": "It grows upward one section at a time, like bamboo. A wider base and a bigger quake.", "hint": "The higher the triangles in the base go, the harder the tower is to snap."}, name: '台北 101', place: '台灣 · 台北', real: '高 508 公尺', shindo: '6強', par: 50,
     desc: '像竹節一樣一節一節往上長。底座更寬了，地震也更大。',
     hint: '底座的三角形疊得越高，上面的塔越不容易被晃斷。',
     anchors: range(0, 6), stars: [[3, row(8)]],
     sil: [[.32, 0], [.68, 0], [.65, .14], [.62, .14], [.64, .24], [.61, .24], [.63, .34], [.6, .34], [.62, .44], [.59, .44], [.61, .54], [.58, .54], [.6, .64], [.57, .64], [.59, .74], [.56, .74], [.55, .86], [.52, .86], [.5, 1], [.48, .86], [.45, .86], [.44, .74], [.41, .74], [.43, .64], [.4, .64], [.42, .54], [.39, .54], [.41, .44], [.38, .44], [.4, .34], [.37, .34], [.39, .24], [.36, .24], [.38, .14], [.35, .14]],
   },
   {
-    id: 11, key: 'skytree', name: '東京晴空塔', place: '日本 · 東京', real: '高 634 公尺', shindo: '6強', par: 64,
+    id: 11, key: 'skytree', en: {"name": "Tokyo Skytree", "place": "Tokyo, Japan", "real": "634 m tall", "desc": "The world's tallest broadcasting tower: long and slim.", "hint": "Spread the bottom with many layers of triangles and narrow it as you go up."}, name: '東京晴空塔', place: '日本 · 東京', real: '高 634 公尺', shindo: '6強', par: 64,
     desc: '世界最高的電波塔，又細又長。',
     hint: '底部用很多層三角形撐開，越往上越窄。',
     anchors: range(0, 7), stars: [[3.5, row(9)]],
     sil: [[.1, 0], [.9, 0], [.6, .35], [.57, .6], [.64, .63], [.64, .67], [.56, .7], [.54, .82], [.58, .84], [.54, .86], [.51, 1], [.49, 1], [.46, .86], [.42, .84], [.46, .82], [.44, .7], [.36, .67], [.36, .63], [.43, .6], [.4, .35]],
   },
   {
-    id: 12, key: 'burj', name: '杜拜塔', place: '阿聯 · 杜拜', real: '高約 828 公尺，世界最高', shindo: '7', par: 80, biome: 'sand',
+    id: 12, key: 'burj', en: {"name": "Burj Khalifa", "place": "Dubai, UAE", "real": "about 828 m, the world's tallest", "desc": "The world's tallest building, stepping in level by level like a staircase. Your first level 7 quake!", "hint": "A tall tower needs a very wide, tall base to stay standing."}, name: '杜拜塔', place: '阿聯 · 杜拜', real: '高約 828 公尺，世界最高', shindo: '7', par: 80, biome: 'sand',
     desc: '世界最高的大樓，像階梯一樣一層層往上收。第一次遇到震度 7！',
     hint: '高塔要有很寬很高的底座，地震時才站得穩。',
     anchors: range(0, 8), stars: [[4, row(10)]],
     sil: [[.1, 0], [.9, 0], [.72, .12], [.66, .13], [.64, .3], [.6, .31], [.58, .5], [.55, .51], [.54, .7], [.52, .71], [.505, 1], [.495, 1], [.48, .71], [.46, .7], [.45, .51], [.42, .5], [.4, .31], [.36, .3], [.34, .13], [.28, .12]],
   },
   {
-    id: 13, key: 'sagrada', name: '聖家堂', place: '西班牙 · 巴塞隆納', real: '最高的耶穌基督塔約 172.5 公尺', shindo: '7', par: 108,
+    id: 13, key: 'sagrada', en: {"name": "Sagrada Família", "place": "Barcelona, Spain", "real": "the Tower of Jesus Christ is about 172.5 m", "desc": "The final job! Gaudí's Sagrada Família has a whole row of spires. Keep all five stars up through a level 7 quake.", "hint": "Build the widest base first, then grow the spires out of it one by one."}, name: '聖家堂', place: '西班牙 · 巴塞隆納', real: '最高的耶穌基督塔約 172.5 公尺', shindo: '7', par: 108,
     desc: '最後一關！高第的聖家堂有一整排尖塔。五顆星星都要撐住，撐過震度 7。',
     hint: '先蓋最寬的底座，再從上面長出一根一根尖塔。',
     anchors: range(0, 10), stars: [[5, row(10)], [3.5, row(7)], [6.5, row(7)], [2.5, row(5)], [7.5, row(5)]],
@@ -256,16 +256,16 @@ export class Design {
     }
     const res = { x1: sx, y1: sy, x2: end.x, y2: end.y, end, ok: true, reason: '' };
     // validation
-    if (this.used() >= this.limit()) { res.ok = false; res.reason = `這關最多 ${this.limit()} 支火柴`; }
+    if (this.used() >= this.limit()) { res.ok = false; res.reason = `這關最多 ${this.limit()} 支火柴`; res.code = 'limit'; res.n = this.limit(); }
     if (end.kind === 'node' && startNode !== null &&
         this.sticks.some(s => (s.a === startNode && s.b === end.id) || (s.b === startNode && s.a === end.id))) {
-      res.ok = false; res.reason = '這裡已經有火柴了';
+      res.ok = false; res.reason = '這裡已經有火柴了'; res.code = 'occupied';
     }
     for (let k = 1; k < 10 && res.ok; k++) {
       const t = k / 10;
-      if (this.insideTerrain(sx + (end.x - sx) * t, sy + (end.y - sy) * t)) { res.ok = false; res.reason = '不能穿過地面'; }
+      if (this.insideTerrain(sx + (end.x - sx) * t, sy + (end.y - sy) * t)) { res.ok = false; res.reason = '不能穿過地面'; res.code = 'ground'; }
     }
-    if (res.ok && end.kind !== 'node' && this.insideTerrain(end.x, end.y)) { res.ok = false; res.reason = '不能插進地面'; }
+    if (res.ok && end.kind !== 'node' && this.insideTerrain(end.x, end.y)) { res.ok = false; res.reason = '不能插進地面'; res.code = 'groundEnd'; }
     return res;
   }
 
@@ -337,9 +337,9 @@ export class Design {
     });
   }
   canStart() {
-    if (!this.used()) return { ok: false, reason: '先放幾支火柴吧' };
+    if (!this.used()) return { ok: false, reason: '先放幾支火柴吧', code: 'empty' };
     const r = this.starsReached(), miss = r.filter(v => !v).length;
-    if (miss) return { ok: false, reason: r.length > 1 ? `還有 ${miss} 顆星星沒碰到` : '結構還沒碰到星星' };
+    if (miss) return { ok: false, reason: r.length > 1 ? `還有 ${miss} 顆星星沒碰到` : '結構還沒碰到星星', code: r.length > 1 ? 'missStars' : 'missStar', n: miss };
     return { ok: true };
   }
 }
@@ -480,15 +480,15 @@ export class Sim {
       if (J.f > limit && this.t > 0.15) {
         const first = this.fireT === null;
         this._breakJoint(J, 'break');
-        this._fail('膠點斷了！建築被震壞');
+        this._fail('膠點斷了！建築被震壞', null, 'joint');
         if (first) for (const sid of J.sticks) this.ignite(sid, J.u.get(sid));
       }
     }
   }
 
-  _fail(reason, igniteStar) {
+  _fail(reason, igniteStar, code) {
     if (this.state !== 'running') return;
-    this.state = 'lost'; this.reason = reason; this.endT = this.t;
+    this.state = 'lost'; this.reason = reason; this.reasonCode = code; this.endT = this.t;
     this.fireT = this.t;
     if (igniteStar) this.ignite(igniteStar.body.stickId, 0.5);
     this.events.push({ type: 'lost', reason });
@@ -501,7 +501,7 @@ export class Sim {
       const wp = st.body.getWorldPoint(st.local);
       if (Math.hypot(wp.x - go.x - st.home.x, wp.y - go.y - st.home.y) > 0.3 * L) {
         st.lost = true;
-        this._fail(this.stars.length > 1 ? '有星星掉下來了！高度沒有守住' : '星星掉下來了！建築倒塌', st);
+        this._fail(this.stars.length > 1 ? '有星星掉下來了！高度沒有守住' : '星星掉下來了！建築倒塌', st, this.stars.length > 1 ? 'stars' : 'star');
       }
     }
     if (this.state === 'running' && this.t >= QUAKE_TIME) { this.state = 'won'; this.endT = this.t; this.events.push({ type: 'won' }); }
