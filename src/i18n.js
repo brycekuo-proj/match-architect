@@ -14,6 +14,20 @@ export const sh = s => LANG === 'en' ? String(s).replace('弱', '−').replace('
 export const lvt = (lv, f) => (LANG === 'en' && lv.en && lv.en[f] !== undefined) ? lv.en[f] : lv[f];
 
 const zh = {
+  'g1.base': '按住左邊的紅點，拖到右邊的紅點，放開就放下一支火柴',
+  'g1.left': '從左邊的紅點往右上拖，碰到星星',
+  'g1.right': '最後從右邊的紅點拖到上面的接點，三角形就完成了',
+  'g2.base': '先用一支火柴連起兩個紅點',
+  'g2.post': '從左邊的紅點往正上方拖，立起一根柱子',
+  'g2.post2': '右邊也立一根柱子',
+  'g2.top': '把兩根柱子的頂端連起來，四方形完成',
+  'g2.brace': '只有四條邊的四方形會晃倒！在左邊柱子的下半段按住，拖到上面的橫樑，黏一支斜撐',
+  'g.go': '完成！按「開始地震」，撐過 10 秒就過關',
+  'g.quake': '地震來了！撐住 10 秒…',
+  'g.undo': '這支不在圖上，按「復原」把它收回來',
+  'g.nice': '很好！',
+  'g.skip': '跳過教學',
+  'order.goTutorial': '開始教學',
   'app.canvas': '火柴建築師遊戲畫面',
   'hud.menu': '委託清單', 'hud.tray': '火柴數量、星星與金幣', 'hud.help': '看委託單', 'hud.sound': '音效開關',
   'tool.matchA': '放火柴', 'tool.match': '火柴', 'tool.deleteA': '刪除火柴', 'tool.delete': '刪除', 'tool.undo': '復原', 'tool.clear': '清空', 'clear.confirm': '確定？',
@@ -69,6 +83,20 @@ const zh = {
 };
 
 const en = {
+  'g1.base': 'Press the left red dot and drag to the right one. Let go to lay a match.',
+  'g1.left': 'Now drag from the left dot up to the star.',
+  'g1.right': 'Last one: drag from the right dot to the joint at the top. Triangle done!',
+  'g2.base': 'First, link the two red dots with a match.',
+  'g2.post': 'Drag straight up from the left dot to stand up a post.',
+  'g2.post2': 'Now a post on the right.',
+  'g2.top': 'Join the tops of the two posts to finish the square.',
+  'g2.brace': 'A bare square wobbles over! Press the lower half of the left post and drag to the top beam to glue on a brace.',
+  'g.go': 'Done! Tap Start Quake and hold out for 10 seconds.',
+  'g.quake': 'Here it comes! Hold on for 10 seconds…',
+  'g.undo': "That match isn't on the plan. Tap Undo to take it back.",
+  'g.nice': 'Nice!',
+  'g.skip': 'Skip tutorial',
+  'order.goTutorial': 'Start Tutorial',
   'app.canvas': 'Match Architect game view',
   'hud.menu': 'Jobs', 'hud.tray': 'Matches, stars and coins', 'hud.help': 'Show the work order', 'hud.sound': 'Sound on or off',
   'tool.matchA': 'Place matches', 'tool.match': 'Match', 'tool.deleteA': 'Erase matches', 'tool.delete': 'Erase', 'tool.undo': 'Undo', 'tool.clear': 'Clear', 'clear.confirm': 'Sure?',

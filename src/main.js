@@ -6,6 +6,7 @@ import { Audio } from './audio.js';
 import { Leaderboard } from './leaderboard.js';
 import { Turntable, hasLandmark } from './turntable.js';
 import { t, sh, lvt, LANG, setLang, applyStatic } from './i18n.js';
+import { Coach } from './coach.js';
 
 const $ = id => document.getElementById(id);
 const audio = new Audio();
@@ -36,7 +37,7 @@ const starStr = n => '★★★'.slice(0, n) + '<i>' + '★★★'.slice(n) + '<
 
 // ---------------------------------------------------------------- screens
 const OVERLAYS = ['ovLoading', 'ovTitle', 'ovLevels', 'ovIntro', 'ovReveal', 'ovResult', 'ovBoard', 'ovError'];
-let turntable = null;
+let turntable = null, coach = null;
 function show(id) {
   for (const o of OVERLAYS) $(o).hidden = o !== id;
   if (id !== 'ovReveal' && turntable) turntable.stop();
@@ -124,7 +125,12 @@ function startLevel(i, restored) {
     t('rew.par', { par: lv.par }),
     t('rew.board'),
   ]);
-  $('howto').open = i === 0;
+  // first jobs: a hands-on tutorial instead of a wall of text (until cleared once, or skipped)
+  G.guide = !!coach && !G.progress.stars[lv.id] && !store.get('mq_guide_off', false) && coach.start(lv.id);
+  if (!G.guide && coach) coach.stop();
+  $('howto').open = false; $('howto').hidden = G.guide;
+  $('orderRewardBox').hidden = G.guide && i === 0;
+  $('btnIntroGo').textContent = t(G.guide ? 'order.goTutorial' : 'order.go');
   const best = G.progress.best[lv.id];
   $('introBest').textContent = best ? t('order.best', { n: best }) : '';
   $('introBest').hidden = !best;
@@ -531,6 +537,7 @@ function bindUI() {
   on('btnLevelsBack', () => { audio.click(); titleScreen(); });
   on('btnBoard', () => { audio.click(); boardScreen(); });
   on('btnRevealGo', () => { audio.click(); closeReveal(); });
+  on('btnSkipCoach', () => { audio.click(); coach.stop(); G.guide = false; store.set('mq_guide_off', true); });
   on('btnBoardBack', () => { audio.click(); titleScreen(); });
   $('boardLevel').addEventListener('change', paintBoard);
   $('resBoardForm').addEventListener('submit', e => {
@@ -576,6 +583,9 @@ function loop(now) {
   let q = 0;
   if (G.state === 'sim' || G.state === 'result') { q = simTick(dt); if (G.sim) view.syncSim(G.sim, dt); }
   if (G.state === 'title') view.camGoal.yaw = 0.3 + Math.sin(now / 5000) * 0.35;
+  if (coach && coach.active && G.design) {
+    if (coach.update(G.state, G.design, view, !!(G.drag && G.drag.start), G.state === 'build' && canStart().ok)) audio.cheer();
+  }
   view.render(dt, q);
   requestAnimationFrame(loop);
 }
@@ -592,6 +602,7 @@ export async function boot(data = {}) {
   try {
     const models = await loadModels();
     view = new View($('gl'), models);
+    coach = new Coach($('coach'), $('coachTip'));
     bindUI();
     setCoins(G.coins);
     window.__mq = { G, LEVELS, REFERENCE, lb, get view() { return view; }, get turntable() { return turntable; }, loadRef(id) { G.design.clear(); REFERENCE[id](G.design); refresh(); },

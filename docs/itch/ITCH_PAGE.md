@@ -60,6 +60,7 @@ Free, plays in your browser on phone and desktop. English and 繁體中文.
 
 ## Features
 
+- A hands-on tutorial: a finger shows you where to press and drag for your first two builds
 - 13 jobs: 3 training builds and 10 world landmarks (Great Sphinx, Great Pyramid, Leaning Tower of Pisa, Eiffel Tower, Tokyo Tower, Oriental Pearl Tower, Taipei 101, Tokyo Skytree, Burj Khalifa, Sagrada Família)
 - Real-time rigid-body physics: every match is a body, and every glue joint can snap
 - Burning collapse: fire spreads along the matches and melts the glue it reaches
