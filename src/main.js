@@ -4,6 +4,7 @@ import { REFERENCE } from './designs.js';
 import { View, loadModels } from './render3d.js';
 import { Audio } from './audio.js';
 import { Leaderboard } from './leaderboard.js';
+import { Turntable, hasLandmark } from './turntable.js';
 
 const $ = id => document.getElementById(id);
 const audio = new Audio();
@@ -33,9 +34,11 @@ const starsFor = (lv, used) => used <= lv.par ? 3 : used <= Math.round(lv.par * 
 const starStr = n => '★★★'.slice(0, n) + '<i>' + '★★★'.slice(n) + '</i>';
 
 // ---------------------------------------------------------------- screens
-const OVERLAYS = ['ovLoading', 'ovTitle', 'ovLevels', 'ovIntro', 'ovResult', 'ovBoard', 'ovError'];
+const OVERLAYS = ['ovLoading', 'ovTitle', 'ovLevels', 'ovIntro', 'ovReveal', 'ovResult', 'ovBoard', 'ovError'];
+let turntable = null;
 function show(id) {
   for (const o of OVERLAYS) $(o).hidden = o !== id;
+  if (id !== 'ovReveal' && turntable) turntable.stop();
   const playing = G.state === 'build' || G.state === 'sim';
   $('hud').hidden = !(playing || G.state === 'result' || G.state === 'intro');
   $('toolbar').hidden = !playing;
@@ -93,7 +96,7 @@ function startLevel(i, restored) {
   G.design = new Design(lv);
   const saved = restored ?? store.get('mq2_design_' + lv.id, null);
   if (saved) { try { G.design.restore(saved); } catch (e) { G.design = new Design(lv); } }
-  G.undo = []; G.sim = null;
+  G.undo = []; G.sim = null; audio.fireStop();
   view.setLevel(lv); view.resetView(); paintZoom();
   view.buildMode = true; view.syncDesign(G.design);
   view.camGoal.yaw = -0.06; view.camGoal.pitch = 0.1;
@@ -195,6 +198,7 @@ function startQuake() {
   audio.rumbleStart();
 }
 function stopQuake() {
+  audio.fireStop();
   if (G.state === 'sim' && G.sim && G.sim.state === 'running' && G.paid) setCoins(G.coins + G.paid);   // cancelled mid-quake: matches not burned
   G.paid = 0;
   audio.rumbleStop();
@@ -207,7 +211,10 @@ function stopQuake() {
 function simTick(dt) {
   const sim = G.sim; if (!sim) return 0;
   const running = sim.state === 'running';
-  if (!running) { G.simHold += dt; if (G.simHold > 4) return 0; }
+  if (!running) {
+    G.simHold += dt;
+    if (G.simHold > (sim.state === 'lost' ? 12 : 4)) { audio.fireStop(); return 0; }   // a lost run keeps burning behind the slip
+  }
   G.acc += dt;
   if (G.turbo) { for (let k = 0; k < G.turbo; k++) sim.step(1 / 60); G.acc = 0; }
   else {
@@ -216,13 +223,32 @@ function simTick(dt) {
     if (n === 4) G.acc = 0;
   }
   for (const ev of sim.events.splice(0)) {
-    if (ev.type === 'break') { view.fxBreak(ev.x, ev.y); audio.snap(); try { navigator.vibrate && navigator.vibrate(50); } catch (e) {} }
-    if (ev.type === 'lost') { audio.rumbleStop(); setTimeout(() => G.sim === sim && showResult(false, ev.reason), 2300); }
-    if (ev.type === 'won') { audio.rumbleStop(); view.fxConfetti(); audio.win(); setTimeout(() => G.sim === sim && showResult(true), 1100); }
+    if (ev.type === 'break') {
+      sim.fxN = (sim.fxN || 0) + 1;
+      if (sim.fxN <= 5) { view.fxBreak(ev.x, ev.y); audio.snap(); } else { view.fxMelt(ev.x, ev.y); audio.crackle(1); }
+      if (sim.fxN === 1) try { navigator.vibrate && navigator.vibrate(50); } catch (e) {}
+    }
+    if (ev.type === 'melt') { view.fxMelt(ev.x, ev.y); if (Math.random() < 0.5) audio.crackle(0.8); }
+    if (ev.type === 'flare') {
+      view.fxFlare(ev.x, ev.y);
+      if (!(sim.flareT > performance.now() - 120)) { sim.flareT = performance.now(); audio.flare(); }
+    }
+    if (ev.type === 'lost') {
+      audio.rumbleStop(); audio.fireStart(); view.kick(0.35);
+      $('quake').hidden = true;
+      sim.resultAt = sim.t + 3.2; sim.resultWon = false;   // watch it come down first (game time, so slow phones see it too)
+    }
+    if (ev.type === 'won') { audio.rumbleStop(); view.fxConfetti(); audio.win(); sim.resultAt = sim.t + 1.1; sim.resultWon = true; }
   }
+  if (sim.resultAt !== undefined && sim.t >= sim.resultAt && G.state === 'sim') showResult(sim.resultWon, sim.reason);
   const env = running ? sim.quakeEnv(sim.t) : 0;
   const q = LEVELS[G.idx].quake, strength = env * q.A / 0.12;
   audio.rumbleLevel(Math.min(1.4, strength));
+  if (sim.fireT !== null) {
+    const n = sim.burning();
+    audio.fireLevel(Math.min(1, n / 10));
+    if (n && Math.random() < dt * Math.min(30, 4 + n * 1.2)) audio.crackle(Math.min(1, 0.4 + n / 20));
+  }
   let maxS = 0; for (const v of sim.stress.values()) maxS = Math.max(maxS, v);
   if (running && maxS > 0.45 && Math.random() < dt * 4) audio.creak(Math.min(1, maxS));
   G.dustT -= dt;
@@ -281,10 +307,21 @@ function showResult(won, reason) {
     mk('修改設計再驗收', 'primary', () => stopQuake());
   }
   renderResultBoard(won, lv, used);
-  show('ovResult');
   G.state = 'result';
+  if (won && hasLandmark(lv.key)) showReveal(lv);
+  else show('ovResult');
   $('toolbar').hidden = true;
 }
+// 完工模型: the Q-version of the real building spins on a turntable before the inspection slip
+function showReveal(lv) {
+  $('revealName').textContent = lv.name;
+  $('revealWhere').textContent = [lv.place || '火柴建築師工作室', lv.real ? '真實建築：' + lv.real : ''].filter(Boolean).join('　');
+  show('ovReveal');
+  try { turntable = turntable || new Turntable($('revealCanvas')); } catch (e) { console.error(e); show('ovResult'); return; }
+  turntable.show(lv.key).then(ok => { if (!ok && G.state === 'result') show('ovResult'); });
+  audio.cheer();
+}
+function closeReveal() { if (turntable) turntable.stop(); show('ovResult'); }
 
 // ---------------------------------------------------------------- leaderboard UI
 function rowsHTML(rows, max, unit = '支') {
@@ -489,6 +526,7 @@ function bindUI() {
   on('btnLevels', () => { audio.click(); levelsScreen(); });
   on('btnLevelsBack', () => { audio.click(); titleScreen(); });
   on('btnBoard', () => { audio.click(); boardScreen(); });
+  on('btnRevealGo', () => { audio.click(); closeReveal(); });
   on('btnBoardBack', () => { audio.click(); titleScreen(); });
   $('boardLevel').addEventListener('change', paintBoard);
   $('resBoardForm').addEventListener('submit', e => {
@@ -527,7 +565,7 @@ let last = performance.now();
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   let q = 0;
-  if (G.state === 'sim' || G.state === 'result') { q = simTick(dt); if (G.sim) view.syncSim(G.sim); }
+  if (G.state === 'sim' || G.state === 'result') { q = simTick(dt); if (G.sim) view.syncSim(G.sim, dt); }
   if (G.state === 'title') view.camGoal.yaw = 0.3 + Math.sin(now / 5000) * 0.35;
   view.render(dt, q);
   requestAnimationFrame(loop);
@@ -546,7 +584,8 @@ export async function boot(data = {}) {
     view = new View($('gl'), models);
     bindUI();
     setCoins(G.coins);
-    window.__mq = { G, LEVELS, REFERENCE, lb, get view() { return view; }, loadRef(id) { G.design.clear(); REFERENCE[id](G.design); refresh(); } };
+    window.__mq = { G, LEVELS, REFERENCE, lb, get view() { return view; }, get turntable() { return turntable; }, loadRef(id) { G.design.clear(); REFERENCE[id](G.design); refresh(); },
+      reveal(id) { G.idx = LEVELS.findIndex(l => l.id === id); G.state = 'result'; showReveal(LEVELS[G.idx]); } };
     lb.onChange(() => {
       $('btnBoard').hidden = !lb.available;
       if (G.state === 'levels') levelsScreen();

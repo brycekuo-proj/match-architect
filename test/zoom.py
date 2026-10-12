@@ -127,7 +127,7 @@ with sync_playwright() as p:
     check(zoom(page) < 0.9, 'zoom works during the quake')
     page.screenshot(path=f'{OUT}/phone_4_quake_zoom.png')
     ev(page, '__mq.G.turbo = 12')
-    page.wait_for_selector('#ovResult:not([hidden])', timeout=60000)
+    page.wait_for_selector('#ovReveal:not([hidden]), #ovResult:not([hidden])', timeout=60000); page.evaluate("document.getElementById('ovReveal').hidden || document.getElementById('btnRevealGo').click()"); page.wait_for_selector('#ovResult:not([hidden])', timeout=5000)
     check(ev(page, "document.getElementById('zoomCtl').hidden"), 'zoom buttons hide under the result slip')
     check(not errs, f'no page errors {errs[:3]}')
     ctx.close()

@@ -14,6 +14,11 @@ export const PARAMS = {
   substeps: 5,
   velIters: 30,
   posIters: 15,
+  // collapse after a failure: fire runs along the matches and melts the glue it reaches
+  burnSpeed: 2.6,          // m/s a flame front travels along a match
+  meltDelay: [0.06, 0.28], // s from the fire reaching a glue joint to the joint letting go
+  glueFade: 1.8,           // s after the failure for all remaining glue to weaken to glueFloor
+  glueFloor: 0.1,
 };
 
 // 震度 ladder: ground amplitude A (m) and frequency f (Hz)
@@ -362,7 +367,10 @@ export class Sim {
     this.joints = [];
     const pin = (ba, bb, x, y, nodeId) => {
       const j = w.createJoint(new RevoluteJoint({ enableMotor: true, motorSpeed: 0, maxMotorTorque: P.jointTorque, collideConnected: false }, ba, bb, new Vec2(x, y)));
-      this.joints.push({ j, nodeId, sticks: [ba.stickId, bb.stickId].filter(v => v !== undefined), f: 0, broken: false, x, y });
+      const sticks = [ba.stickId, bb.stickId].filter(v => v !== undefined);
+      const u = new Map();   // where along each match (0 = end a, 1 = end b) this glue sits
+      for (const sid of sticks) { const [ax, ay, bx, by] = design.ends(design.stick(sid)); u.set(sid, segDist(x, y, ax, ay, bx, by).t); }
+      this.joints.push({ j, nodeId, sticks, u, f: 0, broken: false, x, y });
     };
     for (const n of design.nodes) {
       const inc = design.sticks.filter(s => s.a === n.id || s.b === n.id);
@@ -386,6 +394,8 @@ export class Sim {
       }
     }
     this.stress = new Map();
+    this.burn = new Map();   // stickId → { lo, hi, len } burnt span along the match (0 = end a, the match head)
+    this.fireT = null;       // time of the first failure (fire starts there)
   }
 
   quakeEnv(t) {
@@ -393,7 +403,9 @@ export class Sim {
     return sm(t / 0.8) * sm((QUAKE_TIME - t) / 0.8);
   }
   _quakeTarget(t) {
-    const q = this.level.quake, env = this.quakeEnv(t);
+    const q = this.level.quake;
+    let env = this.quakeEnv(t);
+    if (this.fireT !== null) env *= Math.max(0, 1 - (t - this.fireT) / 3);   // after a failure the shaking dies down; the fire takes over
     const w = 2 * Math.PI * q.f;
     // main sway plus a little irregular wobble; peak acceleration ≈ 1.4·A·ω²
     const x = q.A * env * (Math.sin(w * t) + 0.25 * Math.sin(w * 1.62 * t + 1.3));
@@ -411,31 +423,74 @@ export class Sim {
       this.t += h;
       this._checkJoints(h);
     }
+    if (this.fireT !== null) this._fire(dt);
     this._checkGoals();
+  }
+
+  // ------------------------------------------------ fire
+  ignite(sid, u = 0.5) {
+    if (this.burn.has(sid) || !this.bodies.has(sid)) return;
+    const [ax, ay, bx, by] = this.design.ends(this.design.stick(sid));
+    u = Math.max(0, Math.min(1, u));
+    this.burn.set(sid, { lo: u, hi: u, len: Math.hypot(bx - ax, by - ay) || L });
+  }
+  burning() { let n = 0; for (const B of this.burn.values()) if (B.lo > 0 || B.hi < 1) n++; return n; }
+  _fire(dt) {
+    const P = this.P;
+    for (const [sid, B] of this.burn) {
+      if (B.lo <= 0 && B.hi >= 1) continue;
+      const du = P.burnSpeed * dt / B.len, lo0 = B.lo;
+      B.lo = Math.max(0, B.lo - du); B.hi = Math.min(1, B.hi + du);
+      if (lo0 > 0 && B.lo === 0) {   // flame reached the match head: it flares up
+        const b = this.bodies.get(sid), p = b.getWorldPoint(new Vec2(-B.len / 2, 0));
+        this.events.push({ type: 'flare', sid, x: p.x, y: p.y });
+      }
+    }
+    for (const J of this.joints) {
+      if (J.broken) continue;
+      if (J.melt === undefined) {
+        for (const sid of J.sticks) {
+          const B = this.burn.get(sid), u = J.u.get(sid);
+          if (B && u >= B.lo - 1e-6 && u <= B.hi + 1e-6) { J.melt = this.t + P.meltDelay[0] + Math.random() * (P.meltDelay[1] - P.meltDelay[0]); break; }
+        }
+      } else if (this.t >= J.melt) this._breakJoint(J, 'melt');
+    }
+  }
+  _breakJoint(J, type) {
+    J.broken = true; this.breaks++;
+    const p = J.j.getAnchorA();
+    this.world.destroyJoint(J.j);
+    this.events.push({ type, x: p.x, y: p.y, t: this.t });
+    if (this.fireT !== null) for (const sid of J.sticks) this.ignite(sid, J.u.get(sid));
   }
 
   _checkJoints(h) {
     const P = this.P, a = Math.min(1, h / 0.05);
+    // once something has failed the glue softens (heat, shaking) so the building comes down instead of sagging
+    const fade = this.fireT === null ? 1 : Math.max(P.glueFloor, 1 - (1 - P.glueFloor) * (this.t - this.fireT) / P.glueFade);
     this.stress.clear();
     for (const J of this.joints) {
       if (J.broken) continue;
       const F = J.j.getReactionForce(1 / h).length();
       J.f += (F - J.f) * a;
+      const hot = this.fireT !== null && J.sticks.some(sid => this.burn.has(sid));
+      const limit = P.breakForce * fade * (hot ? 0.5 : 1);
       const s = J.f / P.breakForce;
       for (const sid of J.sticks) this.stress.set(sid, Math.max(this.stress.get(sid) || 0, s));
-      if (J.f > P.breakForce && this.t > 0.15) {
-        J.broken = true; this.breaks++;
-        const p = J.j.getAnchorA();
-        this.world.destroyJoint(J.j);
-        this.events.push({ type: 'break', x: p.x, y: p.y, t: this.t });
+      if (J.f > limit && this.t > 0.15) {
+        const first = this.fireT === null;
+        this._breakJoint(J, 'break');
         this._fail('膠點斷了！建築被震壞');
+        if (first) for (const sid of J.sticks) this.ignite(sid, J.u.get(sid));
       }
     }
   }
 
-  _fail(reason) {
+  _fail(reason, igniteStar) {
     if (this.state !== 'running') return;
     this.state = 'lost'; this.reason = reason; this.endT = this.t;
+    this.fireT = this.t;
+    if (igniteStar) this.ignite(igniteStar.body.stickId, 0.5);
     this.events.push({ type: 'lost', reason });
   }
 
@@ -446,7 +501,7 @@ export class Sim {
       const wp = st.body.getWorldPoint(st.local);
       if (Math.hypot(wp.x - go.x - st.home.x, wp.y - go.y - st.home.y) > 0.3 * L) {
         st.lost = true;
-        this._fail(this.stars.length > 1 ? '有星星掉下來了！高度沒有守住' : '星星掉下來了！建築倒塌');
+        this._fail(this.stars.length > 1 ? '有星星掉下來了！高度沒有守住' : '星星掉下來了！建築倒塌', st);
       }
     }
     if (this.state === 'running' && this.t >= QUAKE_TIME) { this.state = 'won'; this.endT = this.t; this.events.push({ type: 'won' }); }

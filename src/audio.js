@@ -98,6 +98,29 @@ export class Audio {
     this.engine = { o, lfo, g };
   }
   engineStop() { if (!this.engine) return; const e = this.engine, t = this.ctx.currentTime; e.g.gain.setTargetAtTime(0.0001, t, 0.15); e.o.stop(t + 0.8); e.lfo.stop(t + 0.8); this.engine = null; }
+  // ---- fire: a soft roar that follows how much is burning, plus crackles and match-head flares
+  fireStart() {
+    if (!this.ok || this.fire) return;
+    const c = this.ctx;
+    const s = c.createBufferSource(); s.buffer = this.brownBuf; s.loop = true; s.playbackRate.value = 1.6;
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 700; f.Q.value = 0.5;
+    const g = c.createGain(); g.gain.value = 0.0001;
+    s.connect(f); f.connect(g); g.connect(this.sfx); s.start();
+    this.fire = { s, g, f };
+  }
+  fireLevel(v) { if (this.fire) { this.fire.g.gain.setTargetAtTime(0.0001 + v * 0.55, this.ctx.currentTime, 0.25); this.fire.f.frequency.setTargetAtTime(500 + v * 600, this.ctx.currentTime, 0.3); } }
+  fireStop() { if (!this.fire) return; const r = this.fire; r.g.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.3); r.s.stop(this.ctx.currentTime + 1.5); this.fire = null; }
+  crackle(v = 1) {
+    if (!this.ok) return;
+    this._noise(0.012 + Math.random() * 0.03, 'highpass', 2200 + Math.random() * 3500, 0.7, (0.12 + Math.random() * 0.3) * v);
+    if (Math.random() < 0.3) this._noise(0.05, 'bandpass', 900 + Math.random() * 600, 3, 0.15 * v, 0.02);
+  }
+  flare() {
+    if (!this.ok) return;
+    const n = this._noise(0.7, 'bandpass', 3200, 0.8, 0.0001);
+    n.g.gain.setValueAtTime(0.0001, n.t); n.g.gain.exponentialRampToValueAtTime(0.32, n.t + 0.035); n.g.gain.exponentialRampToValueAtTime(0.001, n.t + 0.7);
+    this._tone(160, 0.2, 'sine', 0.12, 0, this.sfx, 70);
+  }
   win() {
     if (!this.ok) return;
     [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => { this._tone(f, 0.5, 'sine', 0.22, i * 0.09); this._tone(f * 2, 0.25, 'sine', 0.05, i * 0.09); });

@@ -1,9 +1,8 @@
 """Touch play-through of the landmark version: tutorials by finger, Eiffel by finger, Sagrada via the reference build."""
 import sys, time, math, json, os
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from playwright.sync_api import sync_playwright
 URL = sys.argv[1]; MODE = sys.argv[2] if len(sys.argv) > 2 else 'touch'
-OUT = os.path.join(ROOT, 'test', 'shots'); os.makedirs(OUT, exist_ok=True)
+OUT = '/home/claude/mq/test/shots2'; os.makedirs(OUT, exist_ok=True)
 L = 2.0; T = math.sqrt(3) / 2
 
 def main():
@@ -20,7 +19,7 @@ def main():
             import pathlib
             def route(r):
                 path = r.request.url.split('cdn.jsdelivr.net/npm/')[1]; pkg, rest = path.split('/', 1)
-                f = pathlib.Path(ROOT + '/node_modules/' + pkg.rsplit('@', 1)[0] + '/' + rest)
+                f = pathlib.Path('/home/claude/mq/node_modules/' + pkg.rsplit('@', 1)[0] + '/' + rest)
                 r.fulfill(path=str(f), content_type='application/javascript') if f.exists() else r.abort()
             page.route('**/cdn.jsdelivr.net/**', route)
         page.route('**/fonts.googleapis.com/**', lambda r: r.abort())
@@ -35,7 +34,7 @@ def main():
         drag(page, cdp, (0, 0), (L, 0)); drag(page, cdp, (0, 0), (L / 2, T * L)); drag(page, cdp, (L, 0), (L / 2, T * L * 1.05))
         print('L1 sticks', ev(page, '__mq.G.design.used()'), 'canStart', ev(page, 'JSON.stringify(__mq.G.design.canStart())'))
         tap(page, '#btnPlay'); time.sleep(2); shot(page, '03_L1_quake')
-        page.wait_for_selector('#ovResult:not([hidden])', timeout=120000); time.sleep(0.5)
+        page.wait_for_selector('#ovReveal:not([hidden]), #ovResult:not([hidden])', timeout=120000); page.evaluate("document.getElementById('ovReveal').hidden || document.getElementById('btnRevealGo').click()"); page.wait_for_selector('#ovResult:not([hidden])', timeout=5000); time.sleep(0.5)
         print('L1:', page.inner_text('#resTitle'), '|', page.inner_text('#resReason')); shot(page, '04_L1_result')
         # L2 braced square via fingers
         tap(page, '#resBtns .primary'); page.wait_for_selector('#ovIntro:not([hidden])'); tap(page, '#btnIntroGo'); time.sleep(1)
@@ -43,7 +42,7 @@ def main():
         for a, c in [((0, 0), (L, 0)), ((0, 0), (0, L)), ((L, 0), (L, L)), ((0, L), (L, L))]: drag(page, cdp, a, c)
         bx = math.sqrt(L * L - (0.75 * L) ** 2); drag(page, cdp, (0, 0.25 * L), (bx, L))
         print('L2 sticks', ev(page, '__mq.G.design.used()'))
-        tap(page, '#btnPlay'); page.wait_for_selector('#ovResult:not([hidden])', timeout=120000)
+        tap(page, '#btnPlay'); page.wait_for_selector('#ovReveal:not([hidden]), #ovResult:not([hidden])', timeout=120000); page.evaluate("document.getElementById('ovReveal').hidden || document.getElementById('btnRevealGo').click()"); page.wait_for_selector('#ovResult:not([hidden])', timeout=5000)
         print('L2:', page.inner_text('#resTitle'), '|', page.inner_text('#resReason'))
         # level select with everything unlocked
         page.evaluate('__mq.G.progress.unlocked = 13')
@@ -61,7 +60,7 @@ def main():
         print('L7 sticks', ev(page, '__mq.G.design.used()'), 'canStart', ev(page, 'JSON.stringify(__mq.G.design.canStart())'))
         time.sleep(0.5); shot(page, '07_L7_built')
         tap(page, '#btnPlay'); time.sleep(3); shot(page, '08_L7_quake')
-        page.wait_for_selector('#ovResult:not([hidden])', timeout=180000); time.sleep(0.5)
+        page.wait_for_selector('#ovReveal:not([hidden]), #ovResult:not([hidden])', timeout=180000); page.evaluate("document.getElementById('ovReveal').hidden || document.getElementById('btnRevealGo').click()"); page.wait_for_selector('#ovResult:not([hidden])', timeout=5000); time.sleep(0.5)
         print('L7:', page.inner_text('#resTitle'), '|', page.inner_text('#resReason'), '|', page.inner_text('#resStats')); shot(page, '09_L7_result')
         # Sagrada (L13): load the reference build through the page, then quake
         tap(page, '#resBtns .ghost'); time.sleep(0.3); tap(page, '#btnMenu'); page.wait_for_selector('#ovLevels:not([hidden])')
@@ -71,7 +70,7 @@ def main():
         print('L13 sticks', ev(page, '__mq.G.design.used()'), 'canStart', ev(page, 'JSON.stringify(__mq.G.design.canStart())'))
         page.evaluate('__mq.G.turbo = 6')
         tap(page, '#btnPlay'); time.sleep(4); shot(page, '11_L13_quake')
-        page.wait_for_selector('#ovResult:not([hidden])', timeout=400000); time.sleep(0.5)
+        page.wait_for_selector('#ovReveal:not([hidden]), #ovResult:not([hidden])', timeout=400000); page.evaluate("document.getElementById('ovReveal').hidden || document.getElementById('btnRevealGo').click()"); page.wait_for_selector('#ovResult:not([hidden])', timeout=5000); time.sleep(0.5)
         print('L13:', page.inner_text('#resTitle'), '|', page.inner_text('#resReason')); shot(page, '12_L13_result')
         errs = [l for l in logs if 'error' in l.lower() and 'ERR_FAILED' not in l]
         print('console errors:', json.dumps(errs[:10], ensure_ascii=False))

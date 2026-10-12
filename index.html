@@ -109,6 +109,13 @@ section.block { padding-block: 72px; }
 .nw { display: inline-block; }
 .fine { margin-top: 18px; font-size: 14px; color: var(--muted); max-width: 46em; }
 
+/* pass or burn */
+.duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 30px; max-width: 760px; }
+.duo figure { margin: 0; border: 3px solid var(--ink); border-radius: 20px; overflow: hidden; box-shadow: 0 7px 0 var(--ink); background: #fff; display: grid; grid-template-rows: auto 1fr; }
+.duo img { width: 100%; height: auto; aspect-ratio: 390 / 600; object-fit: cover; object-position: center 22%; }
+.duo figcaption { padding: 10px 14px 12px; border-top: 3px solid var(--ink); font: 400 15px/1.4 var(--font-display); }
+.duo figcaption small { display: block; font: 500 13px/1.5 var(--font-body); color: var(--muted); }
+
 /* shindo ladder */
 .quake { background: var(--striker); color: var(--paper);
   background-image: radial-gradient(rgba(255,240,220,.08) 1px, transparent 1.6px), radial-gradient(rgba(0,0,0,.25) 1px, transparent 1.6px);
@@ -140,7 +147,7 @@ section.block { padding-block: 72px; }
 
 /* showcase */
 .showcase { background: linear-gradient(180deg, var(--paper), #f6e2c4); }
-.wide { margin-top: 30px; border: 4px solid var(--ink); border-radius: 22px; box-shadow: 0 9px 0 var(--ink); overflow: hidden; background: var(--sky); }
+.wide { margin: 30px 0 0; border: 4px solid var(--ink); border-radius: 22px; box-shadow: 0 9px 0 var(--ink); overflow: hidden; background: var(--sky); }
 .wide figcaption { padding: 12px 18px; border-top: 3px solid var(--ink); background: #fff; font: 400 15px/1.4 var(--font-display); }
 
 /* tech */
@@ -218,11 +225,11 @@ footer p { font-size: 14px; color: #d8c8b4; }
         </li>
         <li class="step">
           <figure><img src="img/phone_quake.jpg" width="390" height="844" loading="lazy" alt="手機畫面：地震中的火柴鐵塔，上方是震度 6弱 的倒數條"></figure>
-          <div class="txt"><span class="num">3</span><h3>撐過 10 秒地震</h3><p>開震時付火柴錢。地面左右搖晃 10 秒，建築展開成立體的塔；受力越大的火柴越紅，膠點撐不住就會斷、還會起火。</p></div>
+          <div class="txt"><span class="num">3</span><h3>撐過 10 秒地震</h3><p>開震時付火柴錢。地面左右搖晃 10 秒，建築展開成立體的塔。受力越大的火柴越紅；膠點一斷就起火，火沿著火柴燒過去，整棟垮成一堆黑炭。</p></div>
         </li>
         <li class="step">
           <figure><img src="img/phone_result.jpg" width="390" height="844" loading="lazy" alt="手機畫面：蓋著合格章的驗收單，三顆星、酬勞結算和這關的排行榜"></figure>
-          <div class="txt"><span class="num">4</span><h3>驗收、領酬勞</h3><p>星星都撐住、膠點一個沒斷就合格。沒用完的火柴每支換 2 金幣，用得越少星星越多，還能上榜比誰最省。</p></div>
+          <div class="txt"><span class="num">4</span><h3>驗收、領酬勞</h3><p>合格時先看這棟建築的 Q 版模型在轉台上旋轉。沒用完的火柴每支換 2 金幣，用得越少星星越多，還能上榜比誰最省。</p></div>
         </li>
       </ol>
     </div>
@@ -243,6 +250,22 @@ footer p { font-size: 14px; color: #d8c8b4; }
 淨賺 20 金幣，還拿到三星</code></div>
       </div>
       <p class="fine">一開始有 30 金幣。沒撐過地震的話，那次的火柴錢就燒掉了；金幣低於 10 時，工作室會補到 10，不會卡關。</p>
+    </div>
+  </section>
+
+  <section class="block" id="finish">
+    <div class="wrap">
+      <p class="eyebrow">PASS OR BURN</p>
+      <h2><span class="nw">合格送你完工模型，</span><span class="nw">倒了就燒成一堆炭</span></h2>
+      <p class="lead">過關時，這棟建築的 Q 版模型會在木頭轉台上旋轉，可以用手指轉。失敗時，膠點一斷就起火，火沿著火柴燒過去，燒到的膠點融掉，整棟垮下來。</p>
+      <div class="duo">
+        <figure><img src="img/phone_reveal.jpg" width="390" height="844" loading="lazy" alt="手機畫面：過關後，Q 版艾菲爾鐵塔在木頭轉台上旋轉"><figcaption>合格<small>艾菲爾鐵塔的完工模型</small></figcaption></figure>
+        <figure><img src="img/phone_burn.jpg" width="390" height="844" loading="lazy" alt="手機畫面：火柴搭的東京鐵塔起火倒塌，火柴燒成黑炭"><figcaption>不合格<small>東京鐵塔燒起來垮掉</small></figcaption></figure>
+      </div>
+      <figure class="wide">
+        <img src="img/models.jpg" width="1600" height="960" loading="lazy" alt="13 座 Q 版低多邊形建築模型：帳篷、小木屋、兩層樓房、獅身人面像、金字塔、比薩斜塔、艾菲爾鐵塔、東京鐵塔、東方明珠、台北 101、東京晴空塔、杜拜塔、聖家堂">
+        <figcaption>13 座 Q 版完工模型。模型和仿原建築的貼圖，都用 Blender 的 Python 腳本做出來。</figcaption>
+      </figure>
     </div>
   </section>
 
@@ -314,7 +337,7 @@ footer p { font-size: 14px; color: #d8c8b4; }
       <div class="tech">
         <div><b>Planck.js</b><span>2D 物理：火柴是剛體，膠點是有摩擦的鉸接，受力超過門檻就斷。</span></div>
         <div><b>Three.js</b><span>即時 3D 低多邊形畫面，地震時建築展開成立體塔。</span></div>
-        <div><b>Blender</b><span>火柴 3D 模型與封面，都用 Python 腳本產生。</span></div>
+        <div><b>Blender</b><span>火柴、13 個 Q 版建築模型（含仿原建築的貼圖）與封面，都用 Python 腳本產生。</span></div>
         <div><b>Web Audio</b><span>火柴斷裂、地鳴、木琴配樂全部即時合成，沒有音檔。</span></div>
       </div>
       <p class="english"><strong>In English:</strong> Match Architect is a free browser game where you take building commissions from around the world and frame them out of fixed-length matchsticks. Each level is a work order with a quake intensity and a match quota. Build with no gravity, then start the quake: the ground shakes for 10 seconds, and any glue joint that takes too much force snaps. Every match costs a coin; reach every star and survive, and each unused match in the quota pays back two coins.</p>

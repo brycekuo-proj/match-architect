@@ -32,7 +32,7 @@ with sync_playwright() as p:
     page.screenshot(path='test/site/c_build.png')
     page.evaluate('__mq.G.turbo = 12'); page.locator('#btnPlay').tap(); time.sleep(0.4)
     print('during quake coins:', page.inner_text('#coinHud'))
-    page.wait_for_selector('#ovResult:not([hidden])', timeout=120000); time.sleep(0.6)
+    page.wait_for_selector('#ovReveal:not([hidden]), #ovResult:not([hidden])', timeout=120000); page.evaluate("document.getElementById('ovReveal').hidden || document.getElementById('btnRevealGo').click()"); page.wait_for_selector('#ovResult:not([hidden])', timeout=5000); time.sleep(0.6)
     print('result:', page.inner_text('#resTitle'), '|', page.inner_text('#resStamp'), '|', page.inner_text('#resCoins').replace('\n', ' '), '| stars', page.inner_text('#resStars'))
     page.fill('#nickInput', 'Bryce'); page.locator('#resBoardForm .btn').tap(); time.sleep(1.2)
     page.screenshot(path='test/site/c_result.png')

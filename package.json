@@ -1,12 +1,12 @@
 {
   "name": "match-architect",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "火柴建築師 Match Architect — 接下世界各地的委託，用最少的火柴搭出建築骨架，撐過 10 秒大地震",
   "type": "module",
   "private": true,
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/levels.test.mjs"
+    "test": "node test/levels.test.mjs && node test/collapse.test.mjs"
   },
   "dependencies": {
     "esbuild": "0.24.0",

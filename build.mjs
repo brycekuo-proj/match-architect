@@ -3,7 +3,12 @@ import { build } from 'esbuild';
 import fs from 'fs';
 
 const glb = n => fs.readFileSync(`assets/${n}.glb`).toString('base64');
-fs.writeFileSync('src/assets.js', `export const MATCH_GLB = "${glb('match')}";\n`);
+// Q-version landmark models from blender/make_landmarks.py (assets/landmarks/<level key>.glb), shown after a clear
+const lmDir = process.env.LM_DIR || 'assets/landmarks';
+const lms = fs.existsSync(lmDir) ? fs.readdirSync(lmDir).filter(f => f.endsWith('.glb')).sort() : [];
+const lmJs = lms.map(f => `  ${JSON.stringify(f.replace(/\.glb$/, ''))}: "${fs.readFileSync(`${lmDir}/${f}`).toString('base64')}",`).join('\n');
+fs.writeFileSync('src/assets.js', `export const MATCH_GLB = "${glb('match')}";\nexport const LANDMARKS = {\n${lmJs}\n};\n`);
+console.log('landmarks', lms.length, (lms.reduce((n, f) => n + fs.statSync(`${lmDir}/${f}`).size, 0) / 1024).toFixed(0) + ' KB');
 
 const tpl = fs.readFileSync('src/template.html', 'utf8');
 const esc = s => s.replace(/<\/script/gi, '<\\/script');

@@ -1,7 +1,5 @@
-import sys
 """Leaderboard flow with a mocked window.claude (db + user): win L1, enter nickname, upload, see rank."""
-import time, json, pathlib, os
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import time, json, pathlib
 from playwright.sync_api import sync_playwright
 MOCK = r"""
 (() => {
@@ -29,26 +27,26 @@ with sync_playwright() as p:
     page.on('pageerror', lambda e: logs.append(str(e)))
     def route(r):
         path = r.request.url.split('cdn.jsdelivr.net/npm/')[1]; pkg, rest = path.split('/', 1)
-        f = pathlib.Path(ROOT + '/node_modules/' + pkg.rsplit('@', 1)[0] + '/' + rest)
+        f = pathlib.Path('/home/claude/mq/node_modules/' + pkg.rsplit('@', 1)[0] + '/' + rest)
         r.fulfill(path=str(f), content_type='application/javascript') if f.exists() else r.abort()
     page.route('**/cdn.jsdelivr.net/**', route); page.route('**/fonts.googleapis.com/**', lambda r: r.abort())
-    page.goto(sys.argv[1] if len(sys.argv) > 1 else 'file://' + ROOT + '/test/artifact_wrapped.html')
+    page.goto('file:///home/claude/mq/test/artifact_wrapped.html')
     page.wait_for_selector('#ovTitle:not([hidden])', timeout=30000); time.sleep(1.5)
     print('board button visible:', page.is_visible('#btnBoard'))
     page.locator('#btnBoard').tap(); time.sleep(0.5)
-    page.screenshot(path=ROOT + '/test/shots/b_board.png')
+    page.screenshot(path='test/shots2/b_board.png')
     print('board rows:', page.inner_text('#boardList').replace('\n', ' | '))
     page.locator('#btnBoardBack').tap(); page.locator('#btnLevels').tap(); time.sleep(0.4)
     print('card1:', page.locator('.lvcard').nth(0).inner_text().replace('\n', ' '))
     page.locator('.lvcard').nth(0).tap(); page.locator('#btnIntroGo').tap(); time.sleep(1)
     page.evaluate("(()=>{const m=__mq; m.G.design.clear(); m.REFERENCE[1](m.G.design); m.view.syncDesign(m.G.design); m.G.turbo=12;})()")
     page.locator('#btnPlay').tap()
-    page.wait_for_selector('#ovResult:not([hidden])', timeout=120000); time.sleep(0.6)
+    page.wait_for_selector('#ovReveal:not([hidden]), #ovResult:not([hidden])', timeout=120000); page.evaluate("document.getElementById('ovReveal').hidden || document.getElementById('btnRevealGo').click()"); page.wait_for_selector('#ovResult:not([hidden])', timeout=5000); time.sleep(0.6)
     print('form visible:', page.is_visible('#resBoardForm'))
     page.fill('#nickInput', 'Bryce'); page.locator('#resBoardForm .btn').tap(); time.sleep(1.2)
     print('note:', page.inner_text('#resBoardNote'))
     print('result rows:', page.inner_text('#resBoardList').replace('\n', ' | '))
-    page.screenshot(path=ROOT + '/test/shots/b_result.png')
+    page.screenshot(path='test/shots2/b_result.png')
     print('stored:', page.evaluate("JSON.stringify([...__mockStore.keys()])"))
     print('errors:', logs)
     b.close()
