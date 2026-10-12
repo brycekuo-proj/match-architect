@@ -1,0 +1,511 @@
+<title>火柴建築師</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Huninn&family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<style>
+:root {
+  /* layout: full-bleed low-poly diorama; matchbox-label HUD pinned top, striker-strip tool tray pinned bottom */
+  --ink: #2a1a12;
+  --label: #d9392b;
+  --label-deep: #a8241a;
+  --sun: #f7c548;
+  --teal: #1f8c84;
+  --paper: #fff7e8;
+  --wood: #e9c48b;
+  --striker: #5c3b28;
+  --sky: #a9daf2;
+  --veil: rgba(42, 26, 18, .32);
+  --font-display: 'Huninn', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-body: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-num: 'Bungee', 'Huninn', ui-rounded, sans-serif;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--sky); color: var(--ink);
+  font: 500 15px/1.55 var(--font-body);
+  overflow: hidden; -webkit-user-select: none; user-select: none; touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#app { position: fixed; inset: 0; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+body.deleting #gl { cursor: crosshair; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+svg { display: block; }
+
+/* ---------- HUD: a matchbox label strip ---------- */
+#hud {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+#hud > * { pointer-events: auto; }
+.icon {
+  width: 44px; height: 44px; flex: none; display: grid; place-items: center;
+  background: var(--paper); border: 3px solid var(--ink); border-radius: 12px;
+  box-shadow: 0 4px 0 var(--ink); padding: 0;
+}
+.icon:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.icon.off svg .wave { display: none; }
+.label-tag {
+  flex: 0 1 auto; max-width: 440px; min-width: 0; height: 44px; display: flex; align-items: center;
+  background: var(--label); color: var(--paper);
+  border: 3px solid var(--ink); border-radius: 12px; box-shadow: 0 4px 0 var(--ink), inset 0 0 0 3px var(--sun);
+  padding: 0 14px; font: 400 18px/1 var(--font-display); letter-spacing: .04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.label-tag span { overflow: hidden; text-overflow: ellipsis; }
+.label-tag em {
+  flex: none; margin-left: 10px; font: 400 13px/1 var(--font-display); font-style: normal; letter-spacing: .02em;
+  background: var(--sun); color: var(--ink); border-radius: 999px; padding: 5px 9px; border: 2px solid var(--ink);
+}
+#matchCount small { font: 500 12px/1 var(--font-body); color: #6d5a49; }
+.matchtray .sep { width: 2px; align-self: stretch; margin: 8px 2px; background: var(--ink); opacity: .2; }
+.starmini { color: var(--sun); -webkit-text-stroke: 1.5px var(--ink); font-size: 20px; line-height: 1; }
+#starCount { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.matchtray {
+  display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px;
+  background: var(--paper); border: 3px solid var(--ink); border-radius: 12px; box-shadow: 0 4px 0 var(--ink);
+}
+#matchBox { display: flex; gap: 3px; align-items: flex-end; }
+.mstick {
+  width: 5px; height: 24px; border-radius: 3px 3px 1px 1px; border: 1.5px solid var(--ink);
+  background: linear-gradient(var(--label) 0 7px, var(--wood) 7px);
+}
+.mstick.used { background: linear-gradient(#2c2420 0 7px, #9b8f84 7px); opacity: .45; }
+#matchCount { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+#matchBox.shakeit { animation: shake .4s; }
+@keyframes shake { 20%,60% { transform: translateX(-5px); } 40%,80% { transform: translateX(5px); } }
+.matchtray { margin-left: auto; }
+@media (max-width: 620px) {
+  .matchtray { order: 9; flex: 1 1 100%; justify-content: center; height: 38px; margin-left: 0; }
+  .label-tag { flex: 1 1 0; max-width: none; font-size: 16px; padding: 0 10px; }
+  .label-tag em { margin-left: 6px; padding: 4px 7px; font-size: 12px; }
+}
+
+/* ---------- toast ---------- */
+#toast {
+  position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 116px); z-index: 7;
+  transform: translateX(-50%); max-width: calc(100% - 32px);
+  background: var(--ink); color: var(--paper); border-radius: 999px;
+  padding: 8px 16px; font: 400 15px/1.35 var(--font-display); text-align: center;
+  pointer-events: none;
+}
+#toast.pop { animation: pop .25s ease-out; }
+@keyframes pop { from { transform: translateX(-50%) scale(.85); opacity: 0; } }
+@media (min-width: 621px) { #toast { top: calc(env(safe-area-inset-top, 0px) + 72px); } }
+
+/* ---------- quake meter: the striker strip ---------- */
+#quake {
+  position: absolute; z-index: 6; left: 50%; transform: translateX(-50%);
+  top: calc(env(safe-area-inset-top, 0px) + 112px); width: min(520px, calc(100% - 32px));
+  display: flex; align-items: center; gap: 10px;
+  background: var(--paper); border: 3px solid var(--ink); border-radius: 12px; box-shadow: 0 4px 0 var(--ink);
+  padding: 6px 10px;
+}
+@media (min-width: 621px) { #quake { top: calc(env(safe-area-inset-top, 0px) + 66px); } }
+#quake .qlabel { font: 400 15px/1 var(--font-display); color: var(--label-deep); white-space: nowrap; }
+.strip {
+  position: relative; flex: 1; height: 18px; border-radius: 4px; overflow: hidden;
+  background-color: var(--striker);
+  background-image: radial-gradient(rgba(255,240,220,.16) 1px, transparent 1.6px), radial-gradient(rgba(0,0,0,.35) 1px, transparent 1.6px);
+  background-size: 5px 5px, 7px 7px; background-position: 0 0, 2px 3px;
+  box-shadow: inset 0 0 0 2px var(--label);
+}
+#quakeFill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: linear-gradient(90deg, rgba(255,140,40,.15), rgba(255,170,60,.85) 85%, #fff2b0);
+}
+#quakeFill::after {
+  content: ''; position: absolute; right: -9px; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%;
+  background: radial-gradient(#fff6c4 0 25%, #ffb02e 45%, rgba(255,90,20,0) 72%);
+}
+#quakeTime { font: 400 18px/1 var(--font-num); min-width: 3.2ch; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- toolbar: the drawer ---------- */
+#toolbar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+  padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; justify-content: center;
+  pointer-events: none;
+}
+#toolbar > * { pointer-events: auto; }
+.tools {
+  display: flex; gap: 4px; padding: 5px;
+  background: var(--paper); border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 5px 0 var(--ink);
+}
+.tool {
+  min-width: 58px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: transparent; border: 0; border-radius: 11px; padding: 6px 6px 5px;
+  font: 400 13px/1 var(--font-display);
+}
+.tool svg { width: 30px; height: 30px; }
+.tool.on { background: var(--label); color: var(--paper); }
+.tool.on svg .fill-ink { fill: var(--paper); }
+#toolDelete.on { background: var(--ink); }
+.tool:disabled, .tool.dim { opacity: .35; }
+#btnClear.confirm { background: var(--sun); }
+.play {
+  display: flex; align-items: center; gap: 10px; padding: 0 22px 0 10px; min-height: 58px;
+  background: var(--label); color: var(--paper); border: 3px solid var(--ink); border-radius: 999px;
+  box-shadow: 0 5px 0 var(--ink); font: 400 21px/1 var(--font-display); letter-spacing: .06em;
+}
+.play:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+.play .head {
+  width: 38px; height: 38px; border-radius: 50%; border: 3px solid var(--ink); flex: none;
+  background: radial-gradient(circle at 35% 30%, #ff8a6a 0 18%, var(--label-deep) 60%);
+}
+.play:not(.ready):not(.stop) { background: #b9a48c; }
+.play.ready .head { animation: glow 1.2s ease-in-out infinite; }
+@keyframes glow { 50% { box-shadow: 0 0 0 6px rgba(247,197,72,.55); } }
+.play.stop { background: var(--ink); }
+.play.stop .head { border-radius: 8px; background: var(--paper); width: 30px; height: 30px; margin: 4px; }
+@media (max-width: 620px) {
+  .tools { flex: 1 1 100%; justify-content: space-between; }
+  .tool { flex: 1; min-width: 0; }
+  .play { flex: 1 1 100%; justify-content: center; min-height: 54px; }
+}
+
+/* ---------- zoom: a little stack of matchbox buttons on the right edge ---------- */
+#zoomCtl {
+  position: absolute; z-index: 5; right: calc(env(safe-area-inset-right, 0px) + 12px); top: 50%; transform: translateY(-50%);
+  display: grid; gap: 10px; pointer-events: none;
+}
+#zoomCtl > * { pointer-events: auto; }
+#zoomCtl .icon { width: 44px; height: 44px; }
+#zoomCtl .icon:disabled { opacity: .4; cursor: default; }
+#zoomCtl .icon:disabled:active { transform: none; box-shadow: 0 4px 0 var(--ink); }
+#zoomCtl .icon.dim { opacity: .55; }
+@media (max-height: 520px) { #zoomCtl { gap: 6px; } #zoomCtl .icon { width: 38px; height: 38px; } }
+
+/* ---------- overlays ---------- */
+.ov {
+  position: absolute; inset: 0; z-index: 10; display: grid; place-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  background: var(--veil); overflow-y: auto; touch-action: pan-y;
+}
+.card {
+  width: 100%; max-width: 440px; background: var(--paper); border: 3px solid var(--ink);
+  border-radius: 20px; box-shadow: 0 8px 0 var(--ink); padding: 22px 20px 20px;
+  display: grid; gap: 14px;
+}
+.card h2 { margin: 0; font: 400 28px/1.15 var(--font-display); text-wrap: balance; }
+.card p { margin: 0; }
+.btnrow { display: flex; gap: 10px; flex-wrap: wrap; }
+.btnrow .btn { flex: 1 1 140px; }
+.btn {
+  min-height: 52px; padding: 10px 18px; border: 3px solid var(--ink); border-radius: 14px;
+  box-shadow: 0 5px 0 var(--ink); font: 400 19px/1.1 var(--font-display); letter-spacing: .03em;
+  background: var(--paper); color: var(--ink);
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+.btn.primary { background: var(--label); color: var(--paper); }
+.btn.teal { background: var(--teal); color: var(--paper); }
+.btn.ghost { background: var(--paper); }
+
+/* title */
+#ovTitle { background: linear-gradient(180deg, rgba(255,247,232,.0) 40%, rgba(42,26,18,.35)); align-content: space-between; }
+.logo {
+  justify-self: center; text-align: center; margin-top: 4vh;
+  background: var(--label); border: 4px solid var(--ink); border-radius: 22px; box-shadow: 0 9px 0 var(--ink), inset 0 0 0 5px var(--sun);
+  padding: 18px 26px 16px; transform: rotate(-2deg);
+}
+.logo h1 {
+  margin: 0; font: 400 clamp(46px, 13vw, 84px)/1 var(--font-display); color: var(--paper); letter-spacing: .06em;
+  text-shadow: 0 4px 0 var(--ink);
+}
+.logo .en { display: block; margin-top: 8px; font: 400 clamp(16px, 4.4vw, 24px)/1 var(--font-num); color: var(--sun); letter-spacing: .14em; text-shadow: 0 2px 0 var(--ink); }
+.titlebox { width: 100%; max-width: 440px; justify-self: center; display: grid; gap: 12px; }
+.tagline { margin: 0; text-align: center; font: 400 17px/1.5 var(--font-display); color: var(--paper); text-shadow: 0 2px 0 var(--ink), 0 0 12px rgba(42,26,18,.6); text-wrap: balance; }
+.toggles { display: flex; gap: 10px; justify-content: center; }
+.chip { background: var(--paper); border: 2px solid var(--ink); border-radius: 999px; padding: 6px 14px; font: 400 14px/1 var(--font-display); box-shadow: 0 3px 0 var(--ink); }
+.jam { text-align: center; color: var(--paper); font-size: 12px; opacity: .9; text-shadow: 0 1px 2px var(--ink); margin: 0; }
+
+/* level select */
+#levelGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 560px) { #ovLevels .card { max-width: 560px; } #levelGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.lvcard {
+  display: grid; gap: 3px; text-align: left; padding: 10px 11px 11px; min-height: 124px; align-content: start;
+  border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 5px 0 var(--ink); color: var(--paper);
+}
+.lvcard:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+.lvcard.c0 { background: var(--label); }
+.lvcard.c1 { background: var(--teal); }
+.lvcard.c2 { background: var(--sun); color: var(--ink); }
+.lvcard.locked { background: #cdbfae; color: #6d5a49; box-shadow: 0 5px 0 #6d5a49; border-color: #6d5a49; }
+.lvtop { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.lvnum { font: 400 30px/1 var(--font-num); }
+.lvshindo { font: 400 11px/1 var(--font-display); background: rgba(255,255,255,.92); color: var(--ink); border-radius: 999px; padding: 4px 7px; white-space: nowrap; }
+.lvcard.locked .lvshindo { background: rgba(255,255,255,.5); }
+.lvname { font: 400 19px/1.2 var(--font-display); }
+.lvtag { font-size: 12px; opacity: .9; }
+.lvstars { font-size: 18px; letter-spacing: 2px; color: var(--sun); text-shadow: 0 1px 0 var(--ink); margin-top: 4px; }
+.lvcard.c2 .lvstars { color: var(--paper); }
+.lvstars i, #resStars i { font-style: normal; opacity: .3; }
+.lvcard.locked .lvstars { font-size: 13px; color: inherit; text-shadow: none; letter-spacing: 0; }
+
+/* intro */
+.introhead { display: flex; align-items: center; gap: 14px; }
+.badge {
+  width: 58px; height: 58px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: var(--label); color: var(--paper); border: 3px solid var(--ink); box-shadow: inset 0 0 0 3px var(--sun);
+  font: 400 26px/1 var(--font-num);
+}
+.pill { display: inline-block; font: 400 13px/1 var(--font-display); background: var(--teal); color: var(--paper); border-radius: 999px; padding: 4px 10px; margin-bottom: 4px; }
+.rule { font: 700 15px/1.4 var(--font-body); border-left: 5px solid var(--label); padding-left: 10px; }
+.real { font: 500 13px/1.4 var(--font-body); color: #6d5a49; margin-top: -8px !important; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.facts div { border: 2px solid var(--ink); border-radius: 12px; padding: 8px 8px 7px; display: grid; gap: 2px; background: #fff; }
+.facts span { font-size: 11px; color: #6d5a49; letter-spacing: .04em; }
+.facts b { font: 400 15px/1.2 var(--font-display); font-weight: 400; }
+.facts em { font: 400 20px/1 var(--font-num); font-style: normal; color: var(--label-deep); }
+.best { font: 400 15px/1.3 var(--font-display); color: var(--teal); }
+.hint { background: #fff0c9; border: 2px dashed var(--ink); border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+.hint b { font-family: var(--font-display); font-weight: 400; margin-right: 6px; color: var(--label-deep); }
+
+/* result */
+#resCard h2 { color: var(--label); font-size: 34px; text-align: center; }
+#resCard.won h2 { color: var(--teal); }
+#resStars { text-align: center; font-size: 46px; line-height: 1; color: var(--sun); -webkit-text-stroke: 2px var(--ink); letter-spacing: 6px; }
+#resStars:empty { display: none; }
+#resReason { text-align: center; font: 400 17px/1.5 var(--font-display); text-wrap: balance; }
+#resStats { text-align: center; font-size: 13px; color: #6d5a49; }
+#resStats b { font: 400 22px/1 var(--font-num); color: var(--ink); vertical-align: -2px; }
+
+/* work order / inspection slip */
+.slip { position: relative; background: #fffdf6; gap: 12px; padding-top: 26px;
+  background-image: repeating-linear-gradient(180deg, transparent 0 31px, rgba(31,140,132,.12) 31px 32px); }
+.slip::before { content: ''; position: absolute; left: 10px; right: 10px; top: 8px; height: 8px;
+  background: radial-gradient(circle at 6px 4px, var(--veil-solid, #e8dcc8) 0 3.2px, transparent 3.6px) 0 0 / 14px 8px repeat-x; }
+.sliphead { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 3px double var(--ink); padding-bottom: 8px; }
+.slipno { font: 400 15px/1 var(--font-display); letter-spacing: .06em; }
+.slipno b { font: 400 18px/1 var(--font-num); color: var(--label-deep); font-weight: 400; }
+.stamp { font: 400 16px/1 var(--font-display); color: var(--label); border: 3px solid var(--label); border-radius: 10px; padding: 6px 10px; transform: rotate(-8deg); letter-spacing: .08em; background: rgba(255,255,255,.6); }
+#resCard.won .stamp { color: var(--teal); border-color: var(--teal); }
+.slipfield { display: grid; grid-template-columns: 4.6em minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.slipfield > span { font: 400 13px/1.4 var(--font-display); color: #6d5a49; letter-spacing: .06em; }
+.slipfield h2 { font-size: 26px; }
+.slipfield p { font-size: 15px; }
+.slipfield p b { font: 400 16px/1.3 var(--font-display); font-weight: 400; }
+.slipfield p small { display: block; font-size: 12px; color: #6d5a49; }
+.slipbox { border: 2px solid var(--ink); border-radius: 12px; padding: 10px 12px 10px; background: #fff; }
+.slipbox.reward { background: #fff4cf; }
+.slipbox h3 { margin: 0 0 6px; font: 400 15px/1 var(--font-display); color: var(--label-deep); letter-spacing: .08em; }
+.slipbox.reward h3 { color: var(--teal); }
+.slipbox ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; font-size: 14px; line-height: 1.5; }
+.slipbox li b { font: 400 15px/1 var(--font-num); color: var(--ink); }
+.howto summary { font: 400 14px/1.4 var(--font-display); cursor: pointer; color: var(--teal); }
+.howto p { margin-top: 6px !important; font-size: 13px; color: #6d5a49; }
+#ovIntro .card, #ovResult .card { max-height: calc(100% - 8px); overflow-y: auto; }
+
+/* coins */
+.coin { display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ink); flex: none;
+  background: radial-gradient(circle at 35% 30%, #fff3b8 0 18%, var(--sun) 45%, #d99a1e 100%); box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
+#coinHud { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.cost { font: 400 12px/1 var(--font-num); color: var(--label-deep); }
+.cost:empty { display: none; }
+.wallet { margin: 0; justify-self: center; display: inline-flex; align-items: center; gap: 8px; background: var(--paper); border: 2px solid var(--ink); border-radius: 999px; padding: 6px 14px; font: 400 15px/1 var(--font-display); box-shadow: 0 3px 0 var(--ink); }
+.wallet b { font: 400 17px/1 var(--font-num); }
+.rescoins { text-align: center; font: 400 15px/1.7 var(--font-display); background: #fff4cf; border: 2px dashed var(--ink); border-radius: 12px; padding: 8px 10px; }
+.rescoins b { font: 400 15px/1 var(--font-num); }
+.rescoins b.big { font-size: 22px; color: var(--label-deep); }
+@media (max-width: 620px) { .matchtray { gap: 7px; padding: 0 10px; } }
+
+/* leaderboard */
+.lvworld { font: 400 12px/1.2 var(--font-display); background: rgba(42,26,18,.28); border-radius: 6px; padding: 2px 6px; justify-self: start; }
+.lvcard.c2 .lvworld { background: rgba(255,255,255,.6); }
+.resboard { border-top: 3px dashed var(--ink); padding-top: 12px; display: grid; gap: 8px; }
+.resboard h3, #ovBoard h3 { margin: 0; font: 400 18px/1.2 var(--font-display); }
+.resboard h3 small { font: 500 12px/1 var(--font-body); color: #6d5a49; margin-left: 6px; }
+ol.board { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+ol.board li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 10px; border: 2px solid var(--ink); border-radius: 10px; background: #fff; }
+ol.board li.me { background: var(--sun); }
+ol.board li.gap { border: 0; background: none; padding: 0; text-align: center; display: block; color: #6d5a49; }
+ol.board .rk { font: 400 16px/1 var(--font-num); color: var(--label-deep); }
+ol.board li:first-child .rk { color: var(--teal); }
+ol.board .nm { font: 400 15px/1.2 var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+#resBoardList, #boardList { font-size: 14px; color: #6d5a49; }
+#boardList { max-height: 52vh; overflow-y: auto; }
+.nickform { display: grid; gap: 6px; }
+.nickform label { font: 400 14px/1.2 var(--font-display); }
+.nickrow { display: flex; gap: 8px; }
+.nickrow input { flex: 1; min-width: 0; font: 500 16px/1.2 var(--font-body); padding: 10px 12px; border: 3px solid var(--ink); border-radius: 12px; background: #fff; color: var(--ink); }
+.nickrow .btn { min-height: 46px; font-size: 16px; padding: 8px 14px; }
+.boardnote { font: 400 14px/1.4 var(--font-display); color: var(--teal); text-align: center; }
+.boardnote:empty { display: none; }
+.boardpick { display: flex; align-items: center; gap: 10px; font: 400 15px/1 var(--font-display); }
+.boardpick select { flex: 1; min-width: 0; font: 500 16px/1.2 var(--font-body); padding: 8px 10px; border: 3px solid var(--ink); border-radius: 12px; background: #fff; color: var(--ink); }
+.boardinfo { font-size: 13px; color: #6d5a49; }
+#ovResult .card { max-height: calc(100% - 8px); overflow-y: auto; }
+
+/* loading */
+#ovLoading { background: var(--sky); }
+.loader { display: grid; justify-items: center; gap: 14px; font: 400 18px/1 var(--font-display); }
+.loader .m { width: 10px; height: 64px; border-radius: 5px 5px 2px 2px; border: 2px solid var(--ink); background: linear-gradient(var(--label) 0 16px, var(--wood) 16px); animation: spin 1.1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div id="app">
+  <canvas id="gl" aria-label="火柴建築師遊戲畫面"></canvas>
+
+  <header id="hud" hidden>
+    <button class="icon" id="btnMenu" aria-label="委託清單">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="var(--ink)"><rect x="1" y="1" width="8" height="8" rx="2"/><rect x="13" y="1" width="8" height="8" rx="2"/><rect x="1" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+    </button>
+    <div class="label-tag"><span id="lvTitle">1　三角形</span><em id="shindoChip">震度 3</em></div>
+    <div class="matchtray" aria-label="火柴數量與星星"><span id="matchBox"></span><b id="matchCount">0/0</b><span class="sep"></span><span class="starmini" aria-hidden="true">★</span><b id="starCount">0/1</b><span class="sep"></span><i class="coin" aria-hidden="true"></i><b id="coinHud">30</b><small id="coinCost" class="cost"></small></div>
+    <button class="icon" id="btnHelp" aria-label="看委託單">
+      <svg width="22" height="22" viewBox="0 0 22 22"><text x="11" y="17" text-anchor="middle" font-family="Bungee, sans-serif" font-size="17" fill="var(--ink)">?</text></svg>
+    </button>
+    <button class="icon" id="btnSound" aria-label="音效開關">
+      <svg width="24" height="22" viewBox="0 0 24 22" fill="none" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h4l5-4v14l-5-4H3z" fill="var(--ink)"/><path class="wave" d="M16 7.5a5 5 0 0 1 0 7M18.8 4.8a9 9 0 0 1 0 12.4"/></svg>
+    </button>
+  </header>
+
+  <div id="toast" role="status" hidden></div>
+
+  <div id="quake" hidden>
+    <span class="qlabel" id="qShindo">震度 3</span>
+    <div class="strip"><div id="quakeFill"></div></div>
+    <span id="quakeTime">10.0</span>
+  </div>
+
+  <nav id="toolbar" hidden>
+    <div class="tools">
+      <button class="tool on" id="toolMatch" aria-label="放火柴">
+        <svg viewBox="0 0 30 30"><path d="M7 25 L23 7" stroke="#e9c48b" stroke-width="5" stroke-linecap="round"/><path d="M7 25 L23 7" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" opacity=".35"/><circle cx="23.5" cy="6.5" r="4.6" fill="#d9392b" stroke="var(--ink)" stroke-width="1.8"/></svg>
+        <span>火柴</span>
+      </button>
+      <button class="tool" id="toolDelete" aria-label="刪除火柴">
+        <svg viewBox="0 0 30 30"><path d="M6 19 L16 7 L25 15 L17 24 H10 Z" fill="#f2a3b2" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M11 13 L20 21" stroke="var(--ink)" stroke-width="2"/><path d="M4 26h22" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>刪除</span>
+      </button>
+      <button class="tool" id="btnUndo" aria-label="復原">
+        <svg viewBox="0 0 30 30" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 8 L5 13 L10 18"/><path d="M5 13h12a7 7 0 0 1 0 14h-4"/></svg>
+        <span>復原</span>
+      </button>
+      <button class="tool" id="btnClear" aria-label="清空">
+        <svg viewBox="0 0 30 30" fill="none" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h18M12 9V6h6v3M8 9l1.5 16h11L22 9"/><path d="M13 13v8M17 13v8"/></svg>
+        <span id="clearLabel">清空</span>
+      </button>
+    </div>
+    <button class="play" id="btnPlay"><span class="head"></span><span id="playLabel">開始地震</span></button>
+  </nav>
+
+  <div id="zoomCtl" role="group" aria-label="縮放畫面" hidden>
+    <button class="icon" id="zoomIn" aria-label="放大" title="放大（+）">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"><path d="M11 4v14M4 11h14"/></svg>
+    </button>
+    <button class="icon" id="zoomOut" aria-label="縮小" title="縮小（−）">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"><path d="M4 11h14"/></svg>
+    </button>
+    <button class="icon" id="zoomFit" aria-label="看整棟建築" title="看整棟建築（0）">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V3h5M14 3h5v5M19 14v5h-5M8 19H3v-5"/></svg>
+    </button>
+  </div>
+
+  <section class="ov" id="ovLoading">
+    <div class="loader"><div class="m"></div><span>正在搬火柴…</span></div>
+  </section>
+
+  <section class="ov" id="ovTitle" hidden>
+    <div class="logo"><h1>火柴建築師</h1><span class="en">MATCH ARCHITECT</span></div>
+    <div class="titlebox">
+      <p class="tagline">接下世界各地的委託，用最少的火柴搭出建築骨架，撐過 10 秒大地震</p>
+      <div class="btnrow">
+        <button class="btn primary" id="btnStart">開始工作</button>
+        <button class="btn ghost" id="btnLevels">委託清單</button>
+      </div>
+      <button class="btn teal" id="btnBoard" hidden>排行榜：誰用的火柴最少</button>
+      <p class="wallet"><i class="coin" aria-hidden="true"></i>金幣 <b id="coinTitle">30</b></p>
+      <div class="toggles"><button class="chip" id="btnSoundT">音效：開</button><button class="chip" id="btnMusicT">音樂：開</button></div>
+      <p class="jam">AI Browser Game Jam 5 · 火柴 3D 模型由 Blender 製作</p>
+    </div>
+  </section>
+
+  <section class="ov" id="ovLevels" hidden>
+    <div class="card">
+      <h2>委託清單</h2>
+      <div id="levelGrid"></div>
+      <div class="btnrow"><button class="btn ghost" id="btnLevelsBack">回標題</button></div>
+    </div>
+  </section>
+
+  <section class="ov" id="ovIntro" hidden>
+    <div class="card slip" id="orderCard">
+      <div class="sliphead">
+        <span class="slipno">委託單　No.<b id="orderNo">001</b></span>
+        <span class="stamp" id="orderStamp">震度 3</span>
+      </div>
+      <div class="slipfield"><span>工程名稱</span><h2 id="introName">三角形</h2></div>
+      <div class="slipfield"><span>委託地點</span><p><b id="introTag">教學</b><small id="introReal"></small></p></div>
+      <div class="slipfield"><span>工程說明</span><p id="introDesc"></p></div>
+      <div class="slipbox"><h3>任務要求</h3><ul id="orderReq"></ul></div>
+      <div class="slipbox reward"><h3>達成獎勵</h3><ul id="orderReward"></ul></div>
+      <p class="best" id="introBest" hidden></p>
+      <p class="hint"><b>工頭提示</b><span id="introHint"></span></p>
+      <details class="howto" id="howto"><summary>怎麼搭火柴</summary><p>從紅色錨點或火柴端點按住拖曳，放開就放下一支火柴；在火柴中段按住可以黏斜撐。單指拖空白處移動畫面；兩指捏合或右邊的 ＋／－ 可以縮放（電腦也能用滾輪）。</p></details>
+      <div class="btnrow"><button class="btn primary" id="btnIntroGo">接下委託</button></div>
+    </div>
+  </section>
+
+  <section class="ov" id="ovResult" hidden>
+    <div class="card slip" id="resCard">
+      <div class="sliphead">
+        <span class="slipno">驗收單　No.<b id="resNo">001</b></span>
+        <span class="stamp" id="resStamp">合格</span>
+      </div>
+      <h2 id="resTitle">驗收通過</h2>
+      <div id="resStars"></div>
+      <p id="resReason"></p>
+      <p id="resStats"></p>
+      <p id="resCoins" class="rescoins"></p>
+      <section class="resboard" id="resBoard" hidden>
+        <h3>這項工程的排行榜 <small>火柴越少越前面</small></h3>
+        <div id="resBoardList"></div>
+        <form id="resBoardForm" class="nickform" hidden>
+          <label for="nickInput">取個名字上榜</label>
+          <div class="nickrow"><input id="nickInput" maxlength="12" autocomplete="nickname" placeholder="最多 12 個字"><button class="btn primary" type="submit">上傳成績</button></div>
+        </form>
+        <p class="boardnote" id="resBoardNote"></p>
+      </section>
+      <div class="btnrow" id="resBtns"></div>
+    </div>
+  </section>
+
+  <section class="ov" id="ovBoard" hidden>
+    <div class="card">
+      <h2>排行榜</h2>
+      <label class="boardpick" for="boardLevel">榜單<select id="boardLevel"></select></label>
+      <p class="boardinfo" id="boardInfo"></p>
+      <div id="boardList"></div>
+      <div class="btnrow"><button class="btn ghost" id="btnBoardBack">回標題</button></div>
+    </div>
+  </section>
+
+  <section class="ov" id="ovError" hidden>
+    <div class="card">
+      <h2>遊戲沒有啟動</h2>
+      <p id="errMsg">3D 引擎載入失敗。</p>
+      <p>請確認網路連線後重新整理頁面；如果還是不行，請換用最新版 Safari 或 Chrome。</p>
+      <div class="btnrow"><button class="btn primary" onclick="location.reload()">重新整理</button></div>
+    </div>
+  </section>
+</div>
+
+<script>
+setTimeout(function () {
+  if (window.__mqBooted) return;
+  var ids = ['ovLoading', 'ovTitle', 'ovLevels', 'ovIntro', 'ovResult'];
+  ids.forEach(function (i) { var e = document.getElementById(i); if (e) e.hidden = true; });
+  var err = document.getElementById('ovError'); if (err) err.hidden = false;
+  var m = document.getElementById('errMsg'); if (m) m.textContent = '等了 20 秒，3D 引擎還沒載入完成。';
+}, 20000);
+</script>
+<!--IMPORTMAP-->
+<!--APP-->

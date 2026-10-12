@@ -1,0 +1,9 @@
+node_modules/
+src/assets.js
+dist/itch/
+blender/out/
+test/shots*/
+*.zip
+.DS_Store
+_obsolete/
+.git-commit-msg.txt

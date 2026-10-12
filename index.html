@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>火柴建築師 Match Architect</title>
+<meta name="description" content="你是火柴建築師：接下世界各地的委託，用最少的火柴搭出建築骨架，撐過 10 秒大地震。免費、瀏覽器直接玩，手機也能玩。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="火柴建築師 Match Architect">
+<meta property="og:description" content="接下世界各地的委託，用最少的火柴搭出建築骨架，撐過 10 秒大地震。">
+<meta property="og:image" content="https://brycekuo-proj.github.io/match-architect/img/og.jpg">
+<meta property="og:url" content="https://brycekuo-proj.github.io/match-architect/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#d9392b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M14 54 L46 14' stroke='%23e9c48b' stroke-width='9' stroke-linecap='round'/%3E%3Ccircle cx='47' cy='13' r='10' fill='%23d9392b' stroke='%232a1a12' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Huninn&family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<style>
+:root {
+  /* layout: a matchbox label opens the page, then the box "drawer" sections stack below on sky and grass */
+  --ink: #2a1a12;
+  --label: #d9392b;
+  --label-deep: #a8241a;
+  --sun: #f7c548;
+  --teal: #1f8c84;
+  --paper: #fff7e8;
+  --wood: #e9c48b;
+  --striker: #5c3b28;
+  --sky: #a9daf2;
+  --sky-deep: #5fb6ea;
+  --grass: #7cc552;
+  --muted: #6d5a49;
+  --font-display: 'Huninn', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-body: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-num: 'Bungee', 'Huninn', ui-rounded, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 500 16px/1.7 var(--font-body); -webkit-text-size-adjust: 100%; }
+img { max-width: 100%; height: auto; display: block; }
+a { color: inherit; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
+.wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding-inline: 20px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; text-wrap: balance; margin: 0; }
+p { margin: 0; }
+
+/* ---------- hero ---------- */
+.hero {
+  background: linear-gradient(180deg, var(--sky-deep) 0%, var(--sky) 55%, #f6e2c4 100%);
+  padding-block: calc(env(safe-area-inset-top, 0px) + 36px) 0; position: relative; overflow: hidden;
+}
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 36px; align-items: center; padding-bottom: 56px; }
+.plate {
+  display: inline-block; background: var(--label); border: 4px solid var(--ink); border-radius: 24px;
+  box-shadow: 0 10px 0 var(--ink), inset 0 0 0 6px var(--sun); padding: 22px 30px 18px; transform: rotate(-2deg);
+}
+.plate h1 { white-space: nowrap; font-size: clamp(40px, 6vw, 72px); line-height: 1; color: var(--paper); letter-spacing: .06em; text-shadow: 0 5px 0 var(--ink); }
+.plate .en { display: block; margin-top: 10px; font: 400 clamp(17px, 2.4vw, 26px)/1 var(--font-num); color: var(--sun); letter-spacing: .16em; text-shadow: 0 2px 0 var(--ink); }
+.tagline { margin-top: 30px; font: 400 clamp(20px, 2.6vw, 26px)/1.5 var(--font-display); max-width: 22em; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--paper); border: 2px solid var(--ink); border-radius: 999px; padding: 4px 12px; font: 400 14px/1.3 var(--font-display); }
+.cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 26px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 12px; text-decoration: none; min-height: 58px;
+  border: 3px solid var(--ink); border-radius: 999px; box-shadow: 0 6px 0 var(--ink);
+  font: 400 21px/1 var(--font-display); letter-spacing: .05em; padding: 0 26px 0 12px; transition: transform .08s, box-shadow .08s;
+}
+.btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--ink); }
+.btn.play { background: var(--label); color: var(--paper); }
+.btn.play .head { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--ink); background: radial-gradient(circle at 35% 30%, #ff8a6a 0 18%, var(--label-deep) 60%); flex: none; }
+.btn.ghost { background: var(--paper); color: var(--ink); padding: 0 24px; }
+.hero-art { position: relative; }
+.hero-art img { border: 4px solid var(--ink); border-radius: 22px; box-shadow: 0 10px 0 var(--ink); transform: rotate(1.5deg); background: var(--sky); }
+.hero-art .sticker {
+  position: absolute; left: -14px; bottom: -18px; transform: rotate(-6deg);
+  background: var(--sun); border: 3px solid var(--ink); border-radius: 14px; padding: 8px 14px; box-shadow: 0 5px 0 var(--ink);
+  font: 400 15px/1.3 var(--font-display);
+}
+.ground { height: 26px; background: var(--grass); border-top: 4px solid var(--ink); box-shadow: inset 0 -10px 0 #5ea43c; }
+
+/* ---------- sections ---------- */
+section.block { padding-block: 72px; }
+.eyebrow { font: 400 14px/1 var(--font-num); letter-spacing: .16em; color: var(--label-deep); }
+.block h2 { font-size: clamp(30px, 4.4vw, 44px); line-height: 1.2; margin-top: 10px; }
+.lead { margin-top: 14px; max-width: 40em; color: var(--muted); font-size: 17px; }
+
+/* how to play */
+.steps { list-style: none; padding: 0; margin: 36px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.step { background: #fff; border: 3px solid var(--ink); border-radius: 20px; box-shadow: 0 7px 0 var(--ink); overflow: hidden; display: grid; grid-template-rows: auto 1fr; }
+.step figure { margin: 0; background: var(--sky); border-bottom: 3px solid var(--ink); aspect-ratio: 390 / 560; overflow: hidden; }
+.step figure img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.step .txt { padding: 16px 18px 20px; display: grid; gap: 6px; align-content: start; }
+.step .num { font: 400 30px/1 var(--font-num); color: var(--label); }
+.step h3 { font-size: 21px; line-height: 1.3; }
+.step p { color: var(--muted); font-size: 15px; }
+
+/* coins */
+.coins { background: #fff3d6; border-block: 4px solid var(--ink); }
+.pay { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 32px; }
+.pay div { background: #fff; border: 3px solid var(--ink); border-radius: 16px; padding: 16px 18px 18px; display: grid; gap: 6px; align-content: start; box-shadow: 0 6px 0 var(--ink); }
+.pay b { font: 400 22px/1.2 var(--font-display); }
+.pay span { font-size: 15px; color: var(--muted); }
+.pay .coin { display: inline-block; width: 18px; height: 18px; border-radius: 50%; vertical-align: -3px; margin-right: 4px;
+  background: radial-gradient(circle at 35% 30%, #fff1b0 0 20%, var(--sun) 50%, #c9921d 100%); border: 2px solid var(--ink); }
+.pay .ex { background: var(--paper); border-style: dashed; box-shadow: none; }
+.pay .ex code { font: 700 15px/1.6 var(--font-body); color: var(--ink); white-space: pre-line; display: block; }
+.nw { display: inline-block; }
+.fine { margin-top: 18px; font-size: 14px; color: var(--muted); max-width: 46em; }
+
+/* shindo ladder */
+.quake { background: var(--striker); color: var(--paper);
+  background-image: radial-gradient(rgba(255,240,220,.08) 1px, transparent 1.6px), radial-gradient(rgba(0,0,0,.25) 1px, transparent 1.6px);
+  background-size: 7px 7px, 9px 9px; background-position: 0 0, 3px 4px; border-block: 6px solid var(--label); }
+.quake .eyebrow { color: var(--sun); }
+.quake .lead { color: #e9d8c2; }
+.ladder { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin-top: 34px; align-items: end; }
+.rung { background: var(--paper); color: var(--ink); border: 3px solid var(--ink); border-radius: 14px; text-align: center; padding: 10px 4px 12px; display: grid; gap: 4px; }
+.rung b { font: 400 clamp(18px, 3vw, 28px)/1 var(--font-num); color: var(--label-deep); font-weight: 400; }
+.rung span { font: 400 13px/1.3 var(--font-display); }
+.rung:nth-child(1) { min-height: 80px; } .rung:nth-child(2) { min-height: 96px; } .rung:nth-child(3) { min-height: 112px; }
+.rung:nth-child(4) { min-height: 128px; } .rung:nth-child(5) { min-height: 144px; } .rung:nth-child(6) { min-height: 160px; }
+.rung:nth-child(7) { min-height: 176px; background: var(--sun); }
+.note { margin-top: 18px; font-size: 14px; color: #e9d8c2; }
+
+/* levels */
+.chapters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 34px; }
+.chapter { border: 3px solid var(--ink); border-radius: 18px; padding: 18px 20px 20px; background: #fff; display: grid; gap: 12px; align-content: start; }
+.chapter.live { background: var(--paper); box-shadow: 0 7px 0 var(--ink); }
+.chapter header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.chapter h3 { font-size: 22px; }
+.status { font: 400 13px/1 var(--font-display); border-radius: 999px; padding: 5px 10px; border: 2px solid var(--ink); white-space: nowrap; }
+.status.on { background: var(--teal); color: var(--paper); }
+.status.soon { background: var(--paper); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font: 400 14px/1.3 var(--font-display); background: var(--paper); border: 2px solid var(--ink); border-radius: 10px; padding: 4px 9px; }
+.tag small { font: 500 11px/1 var(--font-body); color: var(--label-deep); margin-left: 4px; }
+.chapter.live .tag { background: #fff; }
+
+/* showcase */
+.showcase { background: linear-gradient(180deg, var(--paper), #f6e2c4); }
+.wide { margin-top: 30px; border: 4px solid var(--ink); border-radius: 22px; box-shadow: 0 9px 0 var(--ink); overflow: hidden; background: var(--sky); }
+.wide figcaption { padding: 12px 18px; border-top: 3px solid var(--ink); background: #fff; font: 400 15px/1.4 var(--font-display); }
+
+/* tech */
+.tech { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 30px; }
+.tech div { border: 3px solid var(--ink); border-radius: 16px; padding: 14px 16px; background: #fff; display: grid; gap: 4px; align-content: start; }
+.tech b { font: 400 18px/1.3 var(--font-display); font-weight: 400; }
+.tech span { font-size: 14px; color: var(--muted); }
+.english { margin-top: 30px; border-left: 6px solid var(--label); padding: 4px 0 4px 16px; color: var(--muted); max-width: 46em; font-size: 15px; }
+.english strong { color: var(--ink); }
+
+footer { background: var(--ink); color: var(--paper); padding-block: 34px calc(env(safe-area-inset-bottom, 0px) + 34px); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; justify-content: space-between; }
+footer a { color: var(--sun); }
+footer p { font-size: 14px; color: #d8c8b4; }
+
+@media (max-width: 1000px) {
+  .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pay { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 44px; }
+  .steps, .chapters { grid-template-columns: minmax(0, 1fr); }
+  .step { grid-template-columns: 40% minmax(0, 1fr); grid-template-rows: none; }
+  .step figure { border-bottom: 0; border-right: 3px solid var(--ink); aspect-ratio: auto; height: 100%; max-height: 300px; }
+  .tech { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .ladder { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .rung { min-height: 0 !important; }
+  .step { grid-template-columns: minmax(0, 1fr); }
+  .step figure { border-right: 0; border-bottom: 3px solid var(--ink); max-height: 340px; }
+  .pay { grid-template-columns: minmax(0, 1fr); }
+  .btn { width: 100%; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn { transition: none; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <div class="plate"><h1>火柴建築師</h1><span class="en">MATCH ARCHITECT</span></div>
+      <p class="tagline">接下世界各地的委託，用最少的火柴搭出建築骨架，撐過 10 秒大地震。</p>
+      <div class="facts">
+        <span class="chip">免費</span><span class="chip">瀏覽器直接玩</span><span class="chip">手機、電腦都能玩</span><span class="chip">繁體中文</span>
+      </div>
+      <div class="cta">
+        <a class="btn play" href="play.html"><span class="head" aria-hidden="true"></span>開始工作</a>
+        <a class="btn ghost" href="https://github.com/brycekuo-proj/match-architect">GitHub 原始碼</a>
+      </div>
+    </div>
+    <div class="hero-art">
+      <img src="img/cover.jpg" width="1260" height="1000" alt="用火柴搭成的東京鐵塔立在草地上，地面裂開，旁邊有燃燒的火柴">
+      <p class="sticker">每支火柴 1 金幣，省下來的加倍還你</p>
+    </div>
+  </div>
+  <div class="ground" aria-hidden="true"></div>
+</header>
+
+<main>
+  <section class="block" id="how">
+    <div class="wrap">
+      <p class="eyebrow">HOW TO PLAY</p>
+      <h2>接單、搭骨架、等驗收</h2>
+      <p class="lead">你是一位火柴建築師。建造時沒有重力，想怎麼搭就怎麼搭；按下「開始地震」的那一刻，物理才開始算。</p>
+      <ol class="steps">
+        <li class="step">
+          <figure><img src="img/phone_order.jpg" width="390" height="844" loading="lazy" alt="手機畫面：艾菲爾鐵塔的委託單，蓋著震度 6弱 的章，列出任務要求和達成獎勵"></figure>
+          <div class="txt"><span class="num">1</span><h3>接下委託單</h3><p>每關是一張委託單：要蓋什麼、要撐過幾級震度、最多能用幾支火柴，還有過關能拿到的酬勞。</p></div>
+        </li>
+        <li class="step">
+          <figure><img src="img/phone_build.jpg" width="390" height="844" loading="lazy" alt="手機畫面：用 20 支火柴搭成的艾菲爾鐵塔骨架，頂端碰到星星"></figure>
+          <div class="txt"><span class="num">2</span><h3>拖出火柴搭骨架</h3><p>從紅色錨點或火柴端點拖出一支火柴，端點會自動接上。在火柴中段按住，還能黏上斜撐。碰到所有星星才能開震。</p></div>
+        </li>
+        <li class="step">
+          <figure><img src="img/phone_quake.jpg" width="390" height="844" loading="lazy" alt="手機畫面：地震中的火柴鐵塔，上方是震度 6弱 的倒數條"></figure>
+          <div class="txt"><span class="num">3</span><h3>撐過 10 秒地震</h3><p>開震時付火柴錢。地面左右搖晃 10 秒，建築展開成立體的塔；受力越大的火柴越紅，膠點撐不住就會斷、還會起火。</p></div>
+        </li>
+        <li class="step">
+          <figure><img src="img/phone_result.jpg" width="390" height="844" loading="lazy" alt="手機畫面：蓋著合格章的驗收單，三顆星、酬勞結算和這關的排行榜"></figure>
+          <div class="txt"><span class="num">4</span><h3>驗收、領酬勞</h3><p>星星都撐住、膠點一個沒斷就合格。沒用完的火柴每支換 2 金幣，用得越少星星越多，還能上榜比誰最省。</p></div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block coins" id="coins">
+    <div class="wrap">
+      <p class="eyebrow">COINS</p>
+      <h2><span class="nw">火柴要錢，</span><span class="nw">省下來的加倍還你</span></h2>
+      <p class="lead">不規定一定要用幾支。只要蓋出委託的形狀、撐過 10 秒就過關；用得越少，分數和酬勞越高。</p>
+      <div class="pay">
+        <div><b>配額</b><span>每張委託單給三星目標 2 倍的火柴。蓋超過配額就不能開震。</span></div>
+        <div><b>成本</b><span><i class="coin" aria-hidden="true"></i>每支火柴 1 金幣，按下「開始地震」時付款。錢不夠就不能再放火柴。</span></div>
+        <div><b>酬勞</b><span>驗收合格後，配額裡沒用完的火柴每支換 2 金幣。金幣會一直累積，也有金幣總榜。</span></div>
+        <div class="ex"><b>例子：艾菲爾鐵塔</b><code>配額 40 支，用了 20 支
+成本 −20
+省下 20 支 × 2 = +40
+淨賺 20 金幣，還拿到三星</code></div>
+      </div>
+      <p class="fine">一開始有 30 金幣。沒撐過地震的話，那次的火柴錢就燒掉了；金幣低於 10 時，工作室會補到 10，不會卡關。</p>
+    </div>
+  </section>
+
+  <section class="block quake" id="shindo">
+    <div class="wrap">
+      <p class="eyebrow">SHINDO</p>
+      <h2>震度從 3 一路到 7</h2>
+      <p class="lead">每關都有指定震度。越後面的建築越高、越寬，地震也越大；太細、太窄的塔會在高樓層被震斷。</p>
+      <div class="ladder" role="list">
+        <div class="rung" role="listitem"><b>3</b><span>教學</span></div>
+        <div class="rung" role="listitem"><b>4</b><span>小屋</span></div>
+        <div class="rung" role="listitem"><b>5弱</b><span>小鎮</span></div>
+        <div class="rung" role="listitem"><b>5強</b><span>城市</span></div>
+        <div class="rung" role="listitem"><b>6弱</b><span>鐵塔</span></div>
+        <div class="rung" role="listitem"><b>6強</b><span>高塔</span></div>
+        <div class="rung" role="listitem"><b>7</b><span>最終關</span></div>
+      </div>
+      <p class="note">遊戲裡的震度是難度分級，借用台灣的震度名稱，不代表真實的地表加速度。</p>
+    </div>
+  </section>
+
+  <section class="block" id="levels">
+    <div class="wrap">
+      <p class="eyebrow">LEVELS</p>
+      <h2>從三角形蓋到聖家堂</h2>
+      <p class="lead">目前已經可以玩 13 關，正在擴充成 50 關；完整企劃在 <a href="https://github.com/brycekuo-proj/match-architect/blob/main/docs/LEVEL_PLAN.md">LEVEL_PLAN.md</a>。</p>
+      <div class="chapters">
+        <article class="chapter live">
+          <header><h3>教學</h3><span class="status on">可以玩</span></header>
+          <div class="tags"><span class="tag">三角形<small>★★★ ≤ 3</small></span><span class="tag">四方形<small>★★★ ≤ 5</small></span><span class="tag">兩層樓<small>★★★ ≤ 9</small></span></div>
+        </article>
+        <article class="chapter live">
+          <header><h3>世界名建築</h3><span class="status on">可以玩</span></header>
+          <div class="tags">
+            <span class="tag">獅身人面像<small>4</small></span><span class="tag">古夫金字塔<small>5弱</small></span><span class="tag">比薩斜塔<small>5強</small></span>
+            <span class="tag">艾菲爾鐵塔<small>6弱</small></span><span class="tag">東京鐵塔<small>6強</small></span><span class="tag">東方明珠<small>6強</small></span>
+            <span class="tag">台北 101<small>6強</small></span><span class="tag">東京晴空塔<small>6強</small></span><span class="tag">杜拜塔<small>7</small></span><span class="tag">聖家堂<small>7</small></span>
+          </div>
+        </article>
+        <article class="chapter">
+          <header><h3>小鎮生活・城市街角</h3><span class="status soon">製作中</span></header>
+          <div class="tags"><span class="tag">露營帳篷</span><span class="tag">小木屋</span><span class="tag">鳥居</span><span class="tag">涼亭</span><span class="tag">紅綠燈</span><span class="tag">水塔</span><span class="tag">燈塔</span><span class="tag">風車</span><span class="tag">教堂尖塔</span></div>
+        </article>
+        <article class="chapter">
+          <header><h3>工程挑戰・名建築前篇</h3><span class="status soon">製作中</span></header>
+          <div class="tags"><span class="tag">高壓電塔</span><span class="tag">塔式起重機</span><span class="tag">五重塔</span><span class="tag">摩天輪</span><span class="tag">城堡</span><span class="tag">大笨鐘</span><span class="tag">羅馬競技場</span><span class="tag">泰姬瑪哈陵</span><span class="tag">帝國大廈</span></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block showcase" id="final">
+    <div class="wrap">
+      <p class="eyebrow">FINAL LEVEL</p>
+      <h2>最終關：五座尖塔的聖家堂</h2>
+      <p class="lead">寬 10 支火柴的地基、五顆星星，要撐過震度 7。三星目標是 108 支，你能用得更少嗎？</p>
+      <figure class="wide">
+        <img src="img/desk_sagrada.jpg" width="1440" height="900" loading="lazy" alt="電腦畫面：震度 7 地震中，用 108 支火柴搭成、有五座尖塔的聖家堂">
+        <figcaption>地震開始後，平面的設計會展開成有前後兩面、用火柴橫向連起來的立體建築。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="block" id="tech">
+    <div class="wrap">
+      <p class="eyebrow">MADE WITH AI</p>
+      <h2>怎麼做出來的</h2>
+      <p class="lead">AI Browser Game Jam 5 參賽作品，程式、關卡、美術與音效大部分由 AI 協作完成。</p>
+      <div class="tech">
+        <div><b>Planck.js</b><span>2D 物理：火柴是剛體，膠點是有摩擦的鉸接，受力超過門檻就斷。</span></div>
+        <div><b>Three.js</b><span>即時 3D 低多邊形畫面，地震時建築展開成立體塔。</span></div>
+        <div><b>Blender</b><span>火柴 3D 模型與封面，都用 Python 腳本產生。</span></div>
+        <div><b>Web Audio</b><span>火柴斷裂、地鳴、木琴配樂全部即時合成，沒有音檔。</span></div>
+      </div>
+      <p class="english"><strong>In English:</strong> Match Architect is a free browser game where you take building commissions from around the world and frame them out of fixed-length matchsticks. Each level is a work order with a quake intensity and a match quota. Build with no gravity, then start the quake: the ground shakes for 10 seconds, and any glue joint that takes too much force snaps. Every match costs a coin; reach every star and survive, and each unused match in the quota pays back two coins.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="btn play" href="play.html"><span class="head" aria-hidden="true"></span>開始工作</a>
+    <p>原始碼：<a href="https://github.com/brycekuo-proj/match-architect">github.com/brycekuo-proj/match-architect</a>　·　#AIGameJam</p>
+  </div>
+</footer>
+
+</body>
+</html>
