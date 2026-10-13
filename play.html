@@ -6,7 +6,7 @@
 <title>Match Architect · 火柴建築師</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Huninn&family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@600&family=Huninn&family=Noto+Sans+TC:wght@500;700;900&family=Nunito:wght@800&display=swap">
 <style>
 :root {
   /* layout: full-bleed low-poly diorama; matchbox-label HUD pinned top, striker-strip tool tray pinned bottom */
@@ -24,6 +24,12 @@
   --font-body: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
   --font-num: 'Bungee', 'Huninn', ui-rounded, sans-serif;
   color-scheme: light;
+}
+/* English: bold rounded Latin faces (only one weight of each is loaded, so every weight asked for renders bold);
+   Chinese characters in the English UI still fall back to Huninn / Noto Sans TC */
+:root.lang-en {
+  --font-display: 'Fredoka', 'Huninn', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-body: 'Nunito', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
 }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
