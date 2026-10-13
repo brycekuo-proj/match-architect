@@ -10,6 +10,7 @@ import { Coach, HintLayer, ScanLayer } from './coach.js';
 import { Shop } from './shop.js';
 import { ICONS } from './icons.js';
 import { Ads, setAdText, REMOVE_ADS_PRICE } from './ads.js';
+import { TEASERS, WEB_EDITION } from './levels_full.js';   // web builds get levels_web.js: jobs 11+ are locked teasers
 
 const $ = id => document.getElementById(id);
 const audio = new Audio();
@@ -112,6 +113,16 @@ function levelsScreen() {
       ${wb ? `<span class="lvworld">${t('lv.world', { n: wb.n })}</span>` : ''}
       <span class="lvstars" aria-label="${t('lv.starsA', { n: stars })}">${locked ? t('lv.locked') : starStr(stars)}</span>`;
     b.onclick = () => { audio.click(); startLevel(i); };
+    grid.appendChild(b);
+  });
+  // web edition: the later jobs are in the full version
+  TEASERS.forEach((tz, k) => {
+    const b = document.createElement('button');
+    b.className = 'lvcard locked full c' + ((LEVELS.length + k) % 3);
+    b.innerHTML = `<span class="lvtop"><span class="lvnum">${tz.id}</span><span class="lvshindo">${t('shindo', { s: sh(tz.shindo) })}</span></span>
+      <span class="lvname">${LANG === 'en' ? tz.en : tz.name}</span><span class="lvtag">${t('lv.fullSub')}</span>
+      <span class="lvstars">${t('lv.full')}</span>`;
+    b.onclick = () => { audio.deny(); toast(t('lv.fullToast'), 2000); };
     grid.appendChild(b);
   });
   show('ovLevels');
@@ -383,7 +394,7 @@ function showResult(won, reason) {
     mk(t('btn.retryLess'), 'ghost', () => stopQuake());
     // an interstitial can only come here, between jobs (see Ads.interstitialDue for the pacing)
     if (G.idx < LEVELS.length - 1) mk(t('btn.next'), 'primary', async () => { if (ads.interstitialDue(lv.id, shop.noAds)) await ads.interstitial(); startLevel(G.idx + 1); });
-    else mk(t('btn.allDone'), 'primary', () => { stopQuake(); levelsScreen(); });
+    else mk(t(WEB_EDITION ? 'btn.webDone' : 'btn.allDone'), 'primary', () => { stopQuake(); levelsScreen(); });
   } else {
     mk(t('btn.tearDown'), 'ghost', () => { stopQuake(); pushUndo(); G.design.clear(); refresh(); });
     mk(t('btn.fix'), 'primary', () => stopQuake());

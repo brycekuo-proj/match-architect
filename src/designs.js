@@ -1,6 +1,7 @@
 // Reference builds on the triangular lattice (x in match lengths, r = row; y = r·√3/2).
 // Used by the tests (every level must be solvable) and by the title-screen demo.
 import { L } from './sim.js';
+import { fullDesigns } from './levels_full.js';
 
 const T = Math.sqrt(3) / 2;
 const key = (x, r) => `${Math.round(x * 2)}:${r}`;
@@ -75,14 +76,8 @@ export const REFERENCE = {
   8: d => { const b = new LatticeBuilder(d); eiffelBase(b); b.column([1.5, 3], [2.5, 3], 2, 6); },
   9: d => { const b = new LatticeBuilder(d); b.pyramid(0, 3, 3); b.node(2.5, 3, [2, 2], [1.5, 3]); b.column([1.5, 3], [2.5, 3], 1.5, 7); },
   10: d => { const b = new LatticeBuilder(d); b.pyramid(0, 6, 5); b.column([2.5, 5], [3.5, 5], 3, 8); },
-  11: d => { const b = new LatticeBuilder(d); b.pyramid(0, 7, 6); b.column([3, 6], [4, 6], 3.5, 9); },
-  12: d => { const b = new LatticeBuilder(d); b.pyramid(0, 8, 7); b.column([3.5, 7], [4.5, 7], 4, 10); },
-  13: d => {
-    const b = new LatticeBuilder(d); b.pyramid(0, 10, 6);
-    b.node(3.5, 7, [3, 6], [4, 6]); b.node(6.5, 7, [6, 6], [7, 6]);
-    b.column([4, 6], [5, 6], 5, 10);
-  },
 };
+Object.assign(REFERENCE, fullDesigns(LatticeBuilder));   // 完整版 jobs (none in the web build)
 // Eiffel-style legs on anchors 0,1,3,4 meeting in row 3
 function eiffelBase(b) {
   b.node(0.5, 1, [0, 0], [1, 0]); b.node(3.5, 1, [3, 0], [4, 0]);

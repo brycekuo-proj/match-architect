@@ -56,7 +56,9 @@
 - App 端怎麼接 AdMob 和內購：[docs/APP_ADS.md](docs/APP_ADS.md)。
 
 ## 關卡
-目前 13 關（3 個教學關＋10 座世界名建築，震度 3 → 7）。50 關企劃見 [docs/LEVEL_PLAN.md](docs/LEVEL_PLAN.md)。
+網頁版（GitHub Pages、itch.io、jam、Claude 分享連結）有 10 關：3 個教學關＋7 座世界名建築（獅身人面像到台北 101，震度 3 → 6 強）。第 11 關以後（東京晴空塔、杜拜塔、聖家堂，之後擴充到 50 關）只放在完整版，網頁版的委託清單裡顯示為鎖住的「完整版」卡片。50 關企劃見 [docs/LEVEL_PLAN.md](docs/LEVEL_PLAN.md)。
+
+完整版的內容寫在 `src/levels_full.js`；建置網頁版時，`build.mjs` 會改用 `src/levels_web.js`，所以網頁版檔案裡完全沒有第 11 關以後的關卡、參考解和模型。`dist/app/index.html` 是完整版（給之後的 App 用），不放上網。
 
 ## 排行榜
 `dist/match-architect.html` 是 Claude 分享連結版，使用 Claude artifact 內建的共用資料庫，比每關誰用的火柴最少，以及金幣總榜。GitHub Pages 上的 `play.html` 沒有排行榜，其他功能相同。
@@ -71,7 +73,7 @@
 ## 開發
 ```bash
 npm install
-npm run build   # 產生 dist/match-architect.html、dist/itch/index.html，並複製成根目錄的 play.html
+npm run build   # 產生網頁版 dist/match-architect.html、dist/itch/index.html（複製成根目錄的 play.html），以及完整版 dist/app/index.html
 cd dist/itch && zip ../match-architect-itch.zip index.html   # itch.io 上傳用的 zip
 npm test        # 每關參考解必須撐過該關震度；太細、太窄的錯誤解必須倒；倒下的建築必須燒起來；每種道具都要真的有效
 python3 test/zoom.py   # 縮放按鈕、雙指捏合、滾輪（需要 Playwright）
@@ -83,7 +85,9 @@ python3 test/ads.py    # 廣告（假廣告模式）與移除廣告
 |---|---|
 | `index.html` | GitHub Pages 首頁（遊戲介紹） |
 | `play.html` | 遊戲本體（單一檔案、可離線；也可以打包上傳 itch.io） |
-| `src/sim.js` | 關卡資料、建造規則、物理模擬 |
+| `src/sim.js` | 關卡資料（1–10）、建造規則、物理模擬 |
+| `src/levels_full.js` | 完整版才有的關卡（11 以後）、參考解與模型清單 |
+| `src/levels_web.js` | 網頁版用的替身：只列出鎖住的完整版關卡 |
 | `src/designs.js` | 每關參考解（三星目標） |
 | `src/render3d.js` | Three.js 畫面 |
 | `src/main.js` | 操作、流程、介面 |

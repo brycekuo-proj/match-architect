@@ -7,3 +7,5 @@ test/shots*/
 .DS_Store
 _obsolete/
 .git-commit-msg.txt
+dist/app/
+src/assets_web.js

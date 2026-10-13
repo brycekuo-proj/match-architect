@@ -36,7 +36,7 @@
 
 **Build world landmarks out of matchsticks, then hold on through a 10-second earthquake.**
 
-You are a matchstick architect. Clients around the world send you work orders: a triangle for training, then the Great Sphinx, the Eiffel Tower, Taipei 101… all the way to the Sagrada Família. Frame each building with fixed-length matches, press **Start Quake**, and hope the glue holds.
+You are a matchstick architect. Clients around the world send you work orders: a triangle for training, then the Great Sphinx, the Eiffel Tower, Tokyo Tower… all the way up to Taipei 101. Frame each building with fixed-length matches, press **Start Quake**, and hope the glue holds.
 
 Free, plays in your browser on phone and desktop. English and 繁體中文.
 
@@ -62,14 +62,14 @@ Free, plays in your browser on phone and desktop. English and 繁體中文.
 ## Features
 
 - A hands-on tutorial: a finger shows you where to press and drag for your first two builds
-- 13 jobs: 3 training builds and 10 world landmarks (Great Sphinx, Great Pyramid, Leaning Tower of Pisa, Eiffel Tower, Tokyo Tower, Oriental Pearl Tower, Taipei 101, Tokyo Skytree, Burj Khalifa, Sagrada Família)
+- 10 jobs: 3 training builds and 7 world landmarks (Great Sphinx, Great Pyramid, Leaning Tower of Pisa, Eiffel Tower, Tokyo Tower, Oriental Pearl Tower, Taipei 101). Tokyo Skytree, Burj Khalifa, Sagrada Família and more are coming in the full version
 - Real-time rigid-body physics: every match is a body, and every glue joint can snap
 - Burning collapse: fire spreads along the matches and melts the glue it reaches
 - A shop of one-use anti-quake items based on real seismic engineering: a tuned mass damper like the one in Taipei 101, lead-rubber base isolation, spring dampers, carbon-fibre wrap, ductile steel and a structure scanner that shows where your frame will break. Use them from the item tray while you build
 - Match skins (bamboo, candy, glow, gold), scenes (desert, snow, night) and a cabinet for every landmark model you've earned
-- 13 low-poly landmark models, revealed on a turntable when you pass
+- 10 low-poly landmark models, revealed on a turntable when you pass
 - Every sound and the marimba music are synthesized live; there are no audio files
-- One 1.6 MB HTML file
+- One 1.5 MB HTML file
 
 ## How AI made this game
 
@@ -84,7 +84,7 @@ I (Bryce) came up with the concept, the rules, the level list and the art direct
 
 ## Jam log
 
-- Before the jam (Oct 12–16): first playable version with 13 levels.
+- Before the jam (Oct 12–16): first playable version.
 - During the jam (Oct 17–31): *(fill in what you add during the jam)*
 
 ## Credits

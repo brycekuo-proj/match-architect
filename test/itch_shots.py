@@ -13,7 +13,7 @@ def fonts(page):
     page.route('**/fonts.googleapis.com/**', lambda r: r.fulfill(status=200, content_type='text/css', body=FONT_CSS))
     page.route('**/fonts.gstatic.com/**', lambda r: r.abort())
 URL = 'file:///home/claude/mq/dist/itch/index.html'
-INIT = "if (!sessionStorage.getItem('init')) { localStorage.clear(); localStorage.setItem('mq2_progress', JSON.stringify({unlocked: 13, stars: {1:3,2:3,3:3,4:3,5:2,6:3}, best: {1:3,2:5,3:9}})); localStorage.setItem('mq2_coins', '248'); localStorage.setItem('mq_lang', 'en'); sessionStorage.setItem('init', '1'); }"
+INIT = "if (!sessionStorage.getItem('init')) { localStorage.clear(); localStorage.setItem('mq2_progress', JSON.stringify({unlocked: 13, stars: {1:3,2:3,3:3,4:3,5:2,6:3}, best: {1:3,2:5,3:9}})); localStorage.setItem('mq2_coins', '248'); localStorage.setItem('mq_lang', 'en'); localStorage.setItem('mq2_shop', JSON.stringify({inv: {damper: 1, iso: 1, spring: 2, cfrp: 5, steel: 1, scanner: 1, hint: 1}})); sessionStorage.setItem('init', '1'); }"
 def open_level(page, n):
     page.evaluate("document.getElementById('btnMenu').click()") if page.is_visible('#hud') else page.click('#btnLevels')
     page.wait_for_selector('#ovLevels:not([hidden])'); page.click(f'#levelGrid .lvcard:nth-child({n})'); page.wait_for_selector('#ovIntro:not([hidden])')
@@ -30,8 +30,8 @@ with sync_playwright() as p:
         shot('1_title')
         open_level(page, 7); time.sleep(0.5); shot('2_order')
         page.click('#btnIntroGo'); time.sleep(0.8); page.evaluate('__mq.loadRef(7)'); time.sleep(1); shot('3_build')
-        # Sagrada under a level 7 quake, stress colours on
-        open_level(page, 13); page.click('#btnIntroGo'); time.sleep(0.8); page.evaluate('__mq.loadRef(13)'); time.sleep(0.5)
+        # Taipei 101 (the last web job) under its quake, stress colours on
+        open_level(page, 10); page.click('#btnIntroGo'); time.sleep(0.8); page.evaluate('__mq.loadRef(10)'); time.sleep(0.5)
         page.click('#btnPlay'); page.wait_for_function('__mq.G.sim && __mq.G.sim.t > 3.4', timeout=90000, polling=16); shot('4_quake')
         page.evaluate("document.getElementById('btnPlay').click()"); time.sleep(0.5)
         # Tokyo Tower overloaded: it catches fire and comes down
@@ -41,7 +41,7 @@ with sync_playwright() as p:
         page.wait_for_function('__mq.G.sim.t >= __mq.G.sim.fireT + 0.55', timeout=60000, polling=16); shot('5_fire')
         page.wait_for_selector('#ovResult:not([hidden])', timeout=60000); time.sleep(0.4)
         # finished model
-        page.evaluate('__mq.reveal(13)'); time.sleep(2.5); shot('6_model')
+        page.evaluate('__mq.reveal(7)'); time.sleep(2.5); shot('6_model')
         page.evaluate('__mq.reveal(10)'); time.sleep(2.5); shot('7_model101')
         ctx.close()
     # cover: Blender render + the game's matchbox-label logo

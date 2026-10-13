@@ -1,5 +1,6 @@
 // 火柴建築師 Match Architect — level data, build-graph (Design) and 2D physics (Sim) on Planck.js
 import { World, Vec2, Box, Chain, Circle, RevoluteJoint, PrismaticJoint, DistanceJoint } from 'planck';
+import { fullLevels } from './levels_full.js';
 
 export const L = 2.0;            // fixed match length (m)
 export const TH = 0.12;          // match thickness (m)
@@ -114,27 +115,7 @@ const BASE = [  // each entry is one commission (委託)
     anchors: range(0, 6), stars: [[3, row(8)]],
     sil: [[.32, 0], [.68, 0], [.65, .14], [.62, .14], [.64, .24], [.61, .24], [.63, .34], [.6, .34], [.62, .44], [.59, .44], [.61, .54], [.58, .54], [.6, .64], [.57, .64], [.59, .74], [.56, .74], [.55, .86], [.52, .86], [.5, 1], [.48, .86], [.45, .86], [.44, .74], [.41, .74], [.43, .64], [.4, .64], [.42, .54], [.39, .54], [.41, .44], [.38, .44], [.4, .34], [.37, .34], [.39, .24], [.36, .24], [.38, .14], [.35, .14]],
   },
-  {
-    id: 11, key: 'skytree', en: {"name": "Tokyo Skytree", "place": "Tokyo, Japan", "real": "634 m tall", "desc": "The world's tallest broadcasting tower: long and slim.", "hint": "Spread the bottom with many layers of triangles and narrow it as you go up."}, name: '東京晴空塔', place: '日本 · 東京', real: '高 634 公尺', shindo: '6強', par: 64,
-    desc: '世界最高的電波塔，又細又長。',
-    hint: '底部用很多層三角形撐開，越往上越窄。',
-    anchors: range(0, 7), stars: [[3.5, row(9)]],
-    sil: [[.1, 0], [.9, 0], [.6, .35], [.57, .6], [.64, .63], [.64, .67], [.56, .7], [.54, .82], [.58, .84], [.54, .86], [.51, 1], [.49, 1], [.46, .86], [.42, .84], [.46, .82], [.44, .7], [.36, .67], [.36, .63], [.43, .6], [.4, .35]],
-  },
-  {
-    id: 12, key: 'burj', en: {"name": "Burj Khalifa", "place": "Dubai, UAE", "real": "about 828 m, the world's tallest", "desc": "The world's tallest building, stepping in level by level like a staircase. Your first level 7 quake!", "hint": "A tall tower needs a very wide, tall base to stay standing."}, name: '杜拜塔', place: '阿聯 · 杜拜', real: '高約 828 公尺，世界最高', shindo: '7', par: 80, biome: 'sand',
-    desc: '世界最高的大樓，像階梯一樣一層層往上收。第一次遇到震度 7！',
-    hint: '高塔要有很寬很高的底座，地震時才站得穩。',
-    anchors: range(0, 8), stars: [[4, row(10)]],
-    sil: [[.1, 0], [.9, 0], [.72, .12], [.66, .13], [.64, .3], [.6, .31], [.58, .5], [.55, .51], [.54, .7], [.52, .71], [.505, 1], [.495, 1], [.48, .71], [.46, .7], [.45, .51], [.42, .5], [.4, .31], [.36, .3], [.34, .13], [.28, .12]],
-  },
-  {
-    id: 13, key: 'sagrada', en: {"name": "Sagrada Família", "place": "Barcelona, Spain", "real": "the Tower of Jesus Christ is about 172.5 m", "desc": "The final job! Gaudí's Sagrada Família has a whole row of spires. Keep all five stars up through a level 7 quake.", "hint": "Build the widest base first, then grow the spires out of it one by one."}, name: '聖家堂', place: '西班牙 · 巴塞隆納', real: '最高的耶穌基督塔約 172.5 公尺', shindo: '7', par: 108,
-    desc: '最後一關！高第的聖家堂有一整排尖塔。五顆星星都要撐住，撐過震度 7。',
-    hint: '先蓋最寬的底座，再從上面長出一根一根尖塔。',
-    anchors: range(0, 10), stars: [[5, row(10)], [3.5, row(7)], [6.5, row(7)], [2.5, row(5)], [7.5, row(5)]],
-    spires: true,
-  },
+  ...fullLevels({ range, row }),   // 完整版 only (jobs 11+): the web / jam builds swap levels_full.js for levels_web.js
 ];
 export const LEVELS = BASE.map(o => {
   const xs = [...o.anchors.map(a => a[0]), ...o.stars.map(s => s[0])];
