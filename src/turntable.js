@@ -88,10 +88,31 @@ export class Turntable {
   }
   stop() { if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0; }
 
+  // a still picture of a model for the cabinet (transparent PNG data URL)
+  async snapshot(key, size = 220) {
+    if (!hasLandmark(key)) return null;
+    let m;
+    try { m = await this._load(key); } catch (e) { return null; }
+    const wasRunning = !!this.raf; this.stop();
+    this.pivot.clear(); this.pivot.add(m.holder); this.pivot.scale.setScalar(1);
+    const R = Math.min(1.45, Math.max(0.95, m.r * 1.08 + 0.12));
+    this.disc.scale.set(R, 1, R); this.ring.scale.set(R, 1, R); this.shadow.scale.set(m.r * 2.4 + 0.3, m.r * 2.4 + 0.3, 1);
+    this.h = m.h; this.R = R;
+    this.renderer.setSize(size, size, false); this._frameCam(1);
+    this.stage.rotation.y = -0.55;
+    this.renderer.render(this.scene, this.camera);
+    const url = this.renderer.domElement.toDataURL('image/png');
+    if (wasRunning) { this.last = performance.now(); this.raf = requestAnimationFrame(this._frame); }
+    return url;
+  }
+
   _resize() {
     const w = this.canvas.clientWidth || 300, h = this.canvas.clientHeight || 300;
     this.renderer.setSize(w, h, false);
-    this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+    this._frameCam(w / h);
+  }
+  _frameCam(aspect) {
+    this.camera.aspect = aspect; this.camera.updateProjectionMatrix();
     // frame the model + turntable from slightly above
     const H = this.h + 0.55, W = this.R * 2.25;
     const fov = this.camera.fov * Math.PI / 180, tn = Math.tan(fov / 2);

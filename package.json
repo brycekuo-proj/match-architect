@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/levels.test.mjs && node test/collapse.test.mjs"
+    "test": "node test/levels.test.mjs && node test/collapse.test.mjs && node test/items.test.mjs"
   },
   "dependencies": {
     "esbuild": "0.24.0",

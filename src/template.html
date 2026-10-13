@@ -124,6 +124,81 @@ body.coaching #toast { top: calc(env(safe-area-inset-top, 0px) + 222px); }
 .coach-pulse { animation: cpulse 1s ease-in-out infinite; }
 @keyframes cpulse { 50% { box-shadow: 0 0 0 7px rgba(255, 207, 58, .95), 0 5px 0 var(--ink); } }
 
+/* ---------- 工頭示範 (hint) layer ---------- */
+#hintLayer { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.hint-svg { position: absolute; inset: 0; overflow: visible; }
+.h-line { stroke: #ffe27a; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 10 8; filter: drop-shadow(0 0 2px rgba(42, 26, 18, .7)); animation: hdash .9s linear infinite; }
+@keyframes hdash { to { stroke-dashoffset: -18; } }
+.h-line.built { stroke: #8ee69a; stroke-dasharray: none; stroke-width: 3; opacity: .5; animation: none; }
+.h-dot { fill: #fffbe8; stroke: #2a1a12; stroke-width: 1.5; }
+.tool { position: relative; }
+.tbadge { position: absolute; top: 1px; right: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--label); color: var(--paper); font: 400 11px/15px var(--font-num); font-style: normal; border: 1.5px solid var(--ink); }
+.tbadge:empty { display: none; }
+
+/* ---------- 防震道具: item sheet, placing bar, scanner ---------- */
+/* ---------- ads (mock card) and ad offers ---------- */
+.mockad { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgba(20, 14, 10, .82); }
+.mockad-card { box-sizing: border-box; width: min(360px, 100%); background: var(--paper); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 6px 0 var(--ink); padding: 18px 16px 14px; display: grid; gap: 12px; text-align: center; }
+.mockad-tag { justify-self: center; font: 400 12px/1 var(--font-display); background: var(--ink); color: var(--paper); border-radius: 999px; padding: 5px 10px; }
+.mockad-card b { font: 400 19px/1.35 var(--font-display); }
+.mockad-card p { margin: 0; font-size: 14px; color: #6d5a49; }
+.mockad-bar { height: 10px; border-radius: 999px; background: #e9dfcf; border: 2px solid var(--ink); overflow: hidden; }
+.mockad-bar i { display: block; height: 100%; width: 0; background: var(--teal); }
+.resad { display: grid; }
+.resad .btn { min-height: 46px; font-size: 16px; }
+.btn.adbtn { background: var(--teal); color: var(--paper); }
+.btn.adbtn::before { content: '▶'; font-size: 12px; margin-right: 6px; vertical-align: 1px; }
+#btnDaily { position: relative; }
+#btnDaily .dot { position: absolute; top: -4px; right: -4px; width: 13px; height: 13px; border-radius: 50%; background: var(--label); border: 2px solid var(--paper); }
+#btnDaily.done .dot { display: none; }
+.sitem.adcard { background: #eafaf7; }
+.sitem.adcard .sprev.item { background: #c4f1e7; }
+.sprev .plus { font: 400 18px/1 var(--font-num); color: var(--teal); }
+.linkbtn { display: inline-block; margin-top: 4px; padding: 2px 0; border: 0; background: none; font: 500 12px/1.3 var(--font-body); color: var(--teal); text-decoration: underline; cursor: pointer; }
+
+/* 道具框: a column of item slots on the left edge (the zoom buttons are on the right) */
+#itemTray { position: absolute; z-index: 5; left: calc(env(safe-area-inset-left, 0px) + 10px); top: 50%; transform: translateY(-50%);
+  display: grid; gap: 7px; padding: 6px; background: rgba(255, 247, 232, .92); border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 4px 0 var(--ink); }
+#itemTray.dim { opacity: .6; }
+#itemTray.dim .islot { pointer-events: none; }
+.islot { position: relative; width: 44px; height: 44px; padding: 0; border-radius: 11px; border: 2px solid var(--ink); background: #fff4cf; display: grid; place-items: center; cursor: pointer; }
+.islot:active { transform: translateY(2px); }
+.islot svg { width: 32px; height: 32px; }
+.islot.empty { background: #e6ded1; }
+.islot.empty svg { opacity: .35; filter: grayscale(1); }
+.islot.on { background: #c4f1e7; box-shadow: inset 0 0 0 3px var(--teal); }
+.islot.placing { background: #ffe28a; box-shadow: inset 0 0 0 3px var(--label); }
+.islot .cnt { position: absolute; right: -7px; bottom: -6px; min-width: 19px; height: 18px; padding: 0 4px; border-radius: 999px; background: var(--ink); color: var(--paper);
+  font: 400 11px/15px var(--font-num); font-style: normal; text-align: center; border: 1.5px solid var(--paper); }
+.islot.empty .cnt { background: #a5998a; }
+.islot.short .cnt { background: var(--label); }
+.islot .chk { display: none; position: absolute; left: -6px; top: -6px; width: 15px; height: 15px; border-radius: 50%; background: var(--teal); border: 2px solid var(--paper); }
+.islot.on .chk { display: block; }
+@media (max-height: 660px) { #itemTray { gap: 5px; padding: 5px; } .islot { width: 38px; height: 38px; } .islot svg { width: 27px; height: 27px; } }
+@media (max-height: 480px) { #itemTray { grid-template-columns: 1fr 1fr; } }
+.topbar { box-sizing: border-box; position: absolute; z-index: 6; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 112px); width: min(560px, calc(100% - 24px));
+  display: flex; align-items: center; gap: 10px; background: var(--paper); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink);
+  padding: 6px 6px 6px 12px; font: 400 14px/1.35 var(--font-display); }
+@media (min-width: 621px) { .topbar { top: calc(env(safe-area-inset-top, 0px) + 66px); } }
+.topbar span { flex: 1; min-width: 0; }
+.topbar .btn { min-height: 40px; padding: 6px 14px; font-size: 15px; flex: none; }
+#scanBar.good { background: #e3f8e6; }
+#scanBar.bad { background: #ffe1db; }
+body.placing #toast, body.scanned #toast { top: calc(env(safe-area-inset-top, 0px) + 176px); }
+@media (min-width: 621px) { body.placing #toast, body.scanned #toast { top: calc(env(safe-area-inset-top, 0px) + 128px); } }
+#scanLayer { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.scan-svg { position: absolute; inset: 0; overflow: visible; }
+.sc-dot { stroke: #2a1a12; stroke-width: 1.5; }
+.sc-lbl { font: 700 12px/1 var(--font-body); fill: #2a1a12; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+.sc-lbl.sc-bad { fill: #c4170c; font-size: 13px; }
+.sc-first { fill: none; stroke: #ff3b2f; stroke-width: 4; transform-box: fill-box; transform-origin: center; animation: scp .9s ease-in-out infinite; }
+@keyframes scp { 50% { transform: scale(1.35); opacity: .55; } }
+
+/* ---------- small confirm dialog ---------- */
+.askwrap { position: absolute; inset: 0; z-index: 14; display: grid; place-items: center; padding: 16px; background: rgba(42, 26, 18, .45); }
+.askcard { max-width: 360px; }
+#askText { font: 400 17px/1.5 var(--font-display); text-align: center; text-wrap: balance; }
+
 /* ---------- toast ---------- */
 #toast {
   position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 116px); z-index: 7;
@@ -138,7 +213,7 @@ body.coaching #toast { top: calc(env(safe-area-inset-top, 0px) + 222px); }
 
 /* ---------- quake meter: the striker strip ---------- */
 #quake {
-  position: absolute; z-index: 6; left: 50%; transform: translateX(-50%);
+  box-sizing: border-box; position: absolute; z-index: 6; left: 50%; transform: translateX(-50%);
   top: calc(env(safe-area-inset-top, 0px) + 112px); width: min(520px, calc(100% - 32px));
   display: flex; align-items: center; gap: 10px;
   background: var(--paper); border: 3px solid var(--ink); border-radius: 12px; box-shadow: 0 4px 0 var(--ink);
@@ -370,6 +445,59 @@ body.coaching #toast { top: calc(env(safe-area-inset-top, 0px) + 222px); }
 .rescoins b.big { font-size: 22px; color: var(--label-deep); }
 @media (max-width: 620px) { .matchtray { gap: 7px; padding: 0 10px; } }
 
+/* shop */
+.shophead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.shophead .wallet { justify-self: auto; }
+.tabs { display: flex; gap: 6px; background: #efe3cf; border: 2px solid var(--ink); border-radius: 14px; padding: 4px; }
+.tab { flex: 1; border: 0; border-radius: 10px; background: transparent; padding: 9px 4px; font: 400 16px/1 var(--font-display); }
+@media (max-width: 420px) { .tab { font-size: 14px; padding: 9px 2px; } }
+.sinfo .own { display: inline-block; margin-top: 3px; font: 400 12px/1.2 var(--font-display); color: var(--teal); }
+.tab.on { background: var(--label); color: var(--paper); }
+.shopnote { font-size: 13px; color: #6d5a49; text-align: center; }
+.shopnote:empty { display: none; }
+#shopGrid { display: grid; gap: 10px; }
+#ovShop .card, #ovCollect .card { max-height: calc(100% - 8px); overflow-y: auto; }
+.sitem { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; gap: 12px; align-items: center; text-align: left;
+  background: #fff; border: 2px solid var(--ink); border-radius: 14px; padding: 9px 10px; cursor: pointer; }
+.sitem.on { background: #fff4cf; box-shadow: inset 0 0 0 3px var(--sun); }
+.sitem.peek { outline: 3px dashed var(--teal); outline-offset: 2px; }
+.sinfo b { display: block; font: 400 17px/1.25 var(--font-display); }
+.sinfo small { display: block; font-size: 12px; color: #6d5a49; line-height: 1.45; }
+.sbuy { min-height: 42px; padding: 6px 12px; font-size: 15px; border-radius: 12px; box-shadow: 0 4px 0 var(--ink); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.sbuy .coin { width: 15px; height: 15px; }
+.sbuy.price { background: var(--sun); }
+.sbuy.short { opacity: .55; }
+.sbuy.using { background: var(--teal); color: var(--paper); box-shadow: none; transform: none; }
+.sprev { width: 62px; height: 62px; border-radius: 12px; border: 2px solid var(--ink); position: relative; overflow: hidden; background: #e7f3fa; }
+.sprev .stk { position: absolute; left: 6px; top: 27px; width: 50px; height: 8px; border-radius: 3px; transform: rotate(-35deg); border: 1.5px solid rgba(42, 26, 18, .55); background: #e9c48b; }
+.sprev .hd { position: absolute; left: 44px; top: 9px; width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid rgba(42, 26, 18, .55); background: #d9392b; }
+.skin-bamboo .stk { background: repeating-linear-gradient(90deg, #dcc27a 0 15px, #9c7d36 15px 17px); }
+.skin-bamboo .hd, .skin-candy .hd { display: none; }
+.skin-candy .stk { background: repeating-linear-gradient(90deg, #e33b4f 0 5px, #fff7f2 5px 10px); }
+.skin-glow { background: #1f2a52; }
+.skin-glow .stk { background: #c9fff0; box-shadow: 0 0 10px #38f0b8; }
+.skin-glow .hd { background: #7dffd6; box-shadow: 0 0 10px #38f0b8; }
+.skin-gold .stk { background: linear-gradient(180deg, #fff2a8, #e0a422); }
+.skin-gold .hd { background: radial-gradient(circle at 35% 30%, #ffd78a, #b5651d); }
+.scene-auto { background: linear-gradient(#a9daf2 0 56%, #7cc552 56%); }
+.scene-desert { background: linear-gradient(#bfe2f5 0 56%, #ecd08f 56%); }
+.scene-snow { background: linear-gradient(#cfe6f4 0 56%, #f3f7fa 56%); }
+.scene-night { background: radial-gradient(circle at 74% 22%, #fff4d0 0 5px, transparent 6px), radial-gradient(circle at 20% 18%, #fff 0 1px, transparent 2px), radial-gradient(circle at 40% 32%, #fff 0 1px, transparent 2px), linear-gradient(#1b2a5a 0 56%, #2f4a3a 56%); }
+.sprev.item { display: grid; place-items: center; background: #fff4cf; }
+.sprev.item svg { width: 34px; height: 34px; }
+.sprev.item em { position: absolute; right: 4px; bottom: 3px; font: 400 13px/1 var(--font-num); font-style: normal; color: var(--label-deep); }
+/* model cabinet */
+#colGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.colitem { display: grid; justify-items: center; gap: 3px; background: #fff; border: 2px solid var(--ink); border-radius: 14px; padding: 6px 5px 9px; text-align: center; }
+.colitem img, .colitem .ph { width: 100%; aspect-ratio: 1; border-radius: 10px; }
+.colitem img { object-fit: contain; background: radial-gradient(circle at 50% 60%, #fff4cf, #fff 70%); }
+.colitem .ph { display: grid; place-items: center; font: 400 30px/1 var(--font-num); color: #cdbfae; background: repeating-linear-gradient(45deg, #f6efe3 0 8px, #efe5d4 8px 16px); }
+.colitem b { font: 400 13px/1.25 var(--font-display); }
+.colitem small { font-size: 11px; color: #6d5a49; line-height: 1.3; }
+.colitem.locked { background: #f3ece1; cursor: default; }
+.colcount { font: 400 14px/1 var(--font-display); color: var(--teal); }
+.btn.small { min-height: 44px; font-size: 17px; padding: 8px 14px; }
+
 /* leaderboard */
 .lvworld { font: 400 12px/1.2 var(--font-display); background: rgba(42,26,18,.28); border-radius: 6px; padding: 2px 6px; justify-self: start; }
 .lvcard.c2 .lvworld { background: rgba(255,255,255,.6); }
@@ -424,6 +552,10 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
   </header>
 
   <div id="toast" role="status" hidden></div>
+  <div id="hintLayer" aria-hidden="true" hidden></div>
+  <div id="scanLayer" aria-hidden="true" hidden></div>
+  <div id="placeBar" class="topbar" role="status" hidden><span id="placeText"></span><button class="btn primary" id="btnPlaceDone" data-t="place.done">完成</button></div>
+  <div id="scanBar" class="topbar" role="status" hidden><span id="scanText"></span><button class="btn ghost" id="btnScanClose" data-t="scan.close">關閉</button></div>
   <div id="coach" aria-hidden="true" hidden></div>
   <div id="coachTip" role="status" aria-live="polite" hidden><span class="cstep"></span><span class="ctext"></span><button class="cskip" id="btnSkipCoach" data-t="g.skip">跳過教學</button></div>
 
@@ -455,6 +587,7 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
     <button class="play" id="btnPlay"><span class="head"></span><span id="playLabel" data-t="play.start">開始地震</span></button>
   </nav>
 
+  <div id="itemTray" role="group" aria-label="防震道具" data-ta="tool.itemsA" hidden></div>
   <div id="zoomCtl" role="group" aria-label="縮放畫面" data-ta="zoom.group" hidden>
     <button class="icon" id="zoomIn" aria-label="放大" title="放大（+）" data-ta="zoom.in" data-tt="zoom.inT">
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"><path d="M11 4v14M4 11h14"/></svg>
@@ -478,6 +611,11 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
       <div class="btnrow">
         <button class="btn primary" id="btnStart" data-t="title.start">開始工作</button>
         <button class="btn ghost" id="btnLevels" data-t="title.levels">委託清單</button>
+      </div>
+      <div class="btnrow">
+        <button class="btn ghost small" id="btnShop" data-t="title.shop">商店</button>
+        <button class="btn ghost small" id="btnCollect" data-t="title.collect">展示櫃</button>
+        <button class="btn ghost small" id="btnDaily" hidden><span data-t="daily.btn">每日禮物</span><i class="dot" id="dailyDot"></i></button>
       </div>
       <button class="btn teal" id="btnBoard" data-t="title.board" hidden>排行榜：誰用的火柴最少</button>
       <p class="wallet"><i class="coin" aria-hidden="true"></i><span data-t="title.coins">金幣</span> <b id="coinTitle">30</b></p>
@@ -512,6 +650,30 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
     </div>
   </section>
 
+  <section class="ov" id="ovShop" hidden>
+    <div class="card">
+      <div class="shophead"><h2 data-t="shop.title">火柴雜貨店</h2><p class="wallet"><i class="coin" aria-hidden="true"></i><b id="coinShop">30</b></p></div>
+      <div class="tabs" role="tablist">
+        <button class="tab on" data-tab="item" data-t="shop.tab.item">道具</button>
+        <button class="tab" data-tab="skin" data-t="shop.tab.skin">火柴</button>
+        <button class="tab" data-tab="scene" data-t="shop.tab.scene">場景</button>
+      </div>
+      <p class="shopnote" id="shopNote"></p>
+      <div id="shopGrid"></div>
+      <div class="btnrow"><button class="btn ghost" id="btnShopBack" data-t="btn.back">回標題</button></div>
+    </div>
+  </section>
+
+  <section class="ov" id="ovCollect" hidden>
+    <div class="card">
+      <div class="shophead"><h2 data-t="col.title">完工模型展示櫃</h2><span class="colcount" id="colCount"></span></div>
+      <div id="colGrid"></div>
+      <div class="btnrow"><button class="btn ghost" id="btnColBack" data-t="btn.back">回標題</button></div>
+    </div>
+  </section>
+
+  <div class="askwrap" id="ask" hidden><div class="card askcard"><p id="askText"></p><div class="btnrow" id="askBtns"></div></div></div>
+
   <section class="ov" id="ovReveal" hidden>
     <div class="reveal">
       <div class="rays" aria-hidden="true"></div>
@@ -535,6 +697,7 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
       <p id="resReason"></p>
       <p id="resStats"></p>
       <p id="resCoins" class="rescoins"></p>
+      <div class="resad" id="resAd" hidden></div>
       <section class="resboard" id="resBoard" hidden>
         <h3 data-th="res.boardTitle">這項工程的排行榜 <small>火柴越少越前面</small></h3>
         <div id="resBoardList"></div>

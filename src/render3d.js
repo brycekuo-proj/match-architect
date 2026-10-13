@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { L, TH, levelTerrain } from './sim.js';
+import { L, TH, levelTerrain, PARAMS } from './sim.js';
 import { MATCH_GLB } from './assets.js';
 
 const b64buf = b64 => { const s = atob(b64); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; };
@@ -42,11 +42,15 @@ const COL = {
   grass: [new THREE.Color('#7cc552'), new THREE.Color('#6ab446'), new THREE.Color('#86cd5a')],
   sand: [new THREE.Color('#ecd08f'), new THREE.Color('#e4c47f'), new THREE.Color('#f1d99d')],
   rock: [new THREE.Color('#d8b183'), new THREE.Color('#c79b6c'), new THREE.Color('#b8875a'), new THREE.Color('#cfa678')],
+  snow: [new THREE.Color('#f3f7fa'), new THREE.Color('#e6eef4'), new THREE.Color('#ffffff')],
   glue: new THREE.Color('#fff3d6'),
   white: new THREE.Color('#ffffff'),
   burnt: new THREE.Color('#4d413b'),
   char: new THREE.Color('#3a302b'),
   hot: new THREE.Color('#ffd2a6'),
+  carbon: new THREE.Color('#77839c'),   // 碳纖維: multiplies the wood colour down to a dark blue-grey
+  strain: new THREE.Color('#ff4a3a'),
+  steel: new THREE.Color('#9eabb8'),
 };
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpP = new THREE.Vector3(), tmpS = new THREE.Vector3(), tmpC = new THREE.Color();
 const ZAXIS = new THREE.Vector3(0, 0, 1), YAXIS = new THREE.Vector3(0, 1, 0);
@@ -64,7 +68,7 @@ export class View {
     sc.background = this._skyTexture();
     sc.fog = new THREE.Fog(0xf3dcc0, 60, 170);
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.1, 500);
-    sc.add(new THREE.HemisphereLight(0xdff1ff, 0xa07a50, 1.25));
+    this.hemi = new THREE.HemisphereLight(0xdff1ff, 0xa07a50, 1.25); sc.add(this.hemi);
     const sun = this.sun = new THREE.DirectionalLight(0xfff0d6, 2.3);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -82,15 +86,12 @@ export class View {
     this._buildFar();
     this._shared();
     // instanced matches and glue blobs
-    this.matchMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.75 });
-    this.matches = new THREE.InstancedMesh(models.matchGeo, this.matchMat, MAXI);
-    this.matches.castShadow = true; this.matches.receiveShadow = true;
-    this.matches.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.matches.setColorAt(0, COL.white);
-    this.matches.count = 0; this.matches.frustumCulled = false;
+    this.skinId = null; this.sceneId = 'auto';
+    this.matches = this._matchMesh('classic');
     this.globs = new THREE.InstancedMesh(this.S.glueGeo, this.S.glueMat, MAXI);
     this.globs.castShadow = true; this.globs.count = 0; this.globs.frustumCulled = false;
     this.structG.add(this.matches, this.globs);
+    this.skinId = 'classic';
     this._fireMeshes();
     this.cam = { target: new THREE.Vector3(), dist: 20, yaw: 0, pitch: 0.1 };
     this.camGoal = { target: new THREE.Vector3(), dist: 20, yaw: 0, pitch: 0.1 };
@@ -277,12 +278,109 @@ export class View {
     this.flameLight.position.set(x, y + 0.4, d + 1); this.flameLight.intensity = Math.max(this.flameLight.intensity, 7);
   }
 
-  _skyTexture() {
-    const c = document.createElement('canvas'); c.width = 4; c.height = 256;
+  _skyTexture(kind = 'day') {
+    this._skies = this._skies || {};
+    if (this._skies[kind]) return this._skies[kind];
+    const night = kind === 'night', c = document.createElement('canvas'); c.width = night ? 512 : 4; c.height = 256;
     const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 0, 256);
-    gr.addColorStop(0, '#5fb6ea'); gr.addColorStop(0.55, '#a9daf2'); gr.addColorStop(0.85, '#f6e2c4'); gr.addColorStop(1, '#f9d7b0');
-    g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+    const stops = { day: ['#5fb6ea', '#a9daf2', '#f6e2c4', '#f9d7b0'], snow: ['#9ccbe8', '#cfe6f4', '#eef5f9', '#f6f9fb'], night: ['#0b1330', '#1b2a5a', '#3a3f6e', '#5a4a6a'] }[kind];
+    gr.addColorStop(0, stops[0]); gr.addColorStop(0.55, stops[1]); gr.addColorStop(0.85, stops[2]); gr.addColorStop(1, stops[3]);
+    g.fillStyle = gr; g.fillRect(0, 0, c.width, 256);
+    if (night) {   // stars
+      const R = seeded(11);
+      for (let i = 0; i < 260; i++) {
+        const x = R() * 512, y = R() * R() * 200, a = 0.35 + R() * 0.65, r = R() < 0.08 ? 1.3 : 0.7;
+        g.fillStyle = `rgba(255,255,240,${a})`; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      }
+    }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    return (this._skies[kind] = t);
+  }
+
+  // ------------------------------------------------------------- match skins (shop)
+  _matchMesh(id) {
+    const { geo, mat } = this._skinParts(id);
+    const m = new THREE.InstancedMesh(geo, mat, MAXI);
+    m.castShadow = true; m.receiveShadow = true;
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    m.setColorAt(0, COL.white);
+    m.count = 0; m.frustumCulled = false;
+    this.skinGeo = geo;
+    return m;
+  }
+  _skinParts(id) {
+    const std = o => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.75, ...o });
+    switch (id) {
+      case 'gold': return { geo: this.models.matchGeo, mat: std({ roughness: 0.28, metalness: 0.5, color: '#ffd468', emissive: '#5a3a00', emissiveIntensity: 0.45 }) };
+      case 'glow': return { geo: this.models.matchGeo, mat: std({ roughness: 0.6, color: '#dcfff4', emissive: '#38f0b8', emissiveIntensity: 0.75 }) };
+      case 'bamboo': return { geo: this._stickGeo('bamboo'), mat: std({ roughness: 0.7 }) };
+      case 'candy': return { geo: this._stickGeo('candy'), mat: std({ roughness: 0.3, flatShading: false }) };
+      default: return { geo: this.models.matchGeo, mat: std({}) };
+    }
+  }
+  // a plain stick 1 long on x (cross-section like a match), coloured by position along it
+  _stickGeo(kind) {
+    this._sticks = this._sticks || {};
+    if (this._sticks[kind]) return this._sticks[kind];
+    const bamboo = kind === 'bamboo';
+    let g = new THREE.CylinderGeometry(bamboo ? 0.021 : 0.031, bamboo ? 0.033 : 0.031, 1, bamboo ? 6 : 10, bamboo ? 1 : 18);
+    g.rotateZ(-Math.PI / 2);   // cylinder axis y → x; the thin end (top) becomes end b
+    g = g.toNonIndexed(); g.computeVertexNormals();
+    const pos = g.attributes.position, col = new Float32Array(pos.count * 3), c = new THREE.Color();
+    const base = new THREE.Color('#dcc27a'), node = new THREE.Color('#9c7d36'), red = new THREE.Color('#e33b4f'), white = new THREE.Color('#fff7f2');
+    for (let i = 0; i < pos.count; i += 3) {
+      const x = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3;
+      if (bamboo) c.copy(base).multiplyScalar(0.94 + 0.08 * Math.sin(i * 1.7));
+      else c.copy(Math.floor((x + 0.5) * 16) % 2 ? red : white);
+      for (let k = 0; k < 3; k++) { col[(i + k) * 3] = c.r; col[(i + k) * 3 + 1] = c.g; col[(i + k) * 3 + 2] = c.b; }
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    if (bamboo) {   // two joints as thin darker rings
+      const rings = [-0.18, 0.22].map(x => {
+        let r = new THREE.CylinderGeometry(0.036, 0.036, 0.03, 6, 1); r.rotateZ(-Math.PI / 2); r.translate(x, 0, 0); r = r.toNonIndexed(); r.computeVertexNormals();
+        const rc = new Float32Array(r.attributes.position.count * 3); for (let i = 0; i < rc.length; i += 3) { rc[i] = node.r; rc[i + 1] = node.g; rc[i + 2] = node.b; }
+        r.setAttribute('color', new THREE.BufferAttribute(rc, 3)); return r;
+      });
+      g = mergeGeometries([g, ...rings]);
+    }
+    return (this._sticks[kind] = g);
+  }
+  setSkin(id) {
+    if (!id || id === this.skinId) return;
+    const old = this.matches;
+    this.matches = this._matchMesh(id); this.skinId = id;
+    this.structG.remove(old); old.material.dispose(); old.dispose();
+    this.structG.add(this.matches);
+    if (this.sim) this.syncSim(this.sim); else if (this.design) this.syncDesign(this.design);
+  }
+
+  // ------------------------------------------------------------- scenes (shop): sky, light and ground
+  setScene(id) { this.sceneId = id || 'auto'; this._atmosphere(); }
+  _atmosphere() {
+    const sc = this.sceneId, night = sc === 'night', snow = sc === 'snow';
+    this.scene.background = this._skyTexture(night ? 'night' : snow ? 'snow' : 'day');
+    this.scene.fog.color.set(night ? 0x1c2448 : snow ? 0xe9f1f7 : 0xf3dcc0);
+    this.hemi.color.set(night ? 0x8091c8 : snow ? 0xf4f8ff : 0xdff1ff);
+    this.hemi.groundColor.set(night ? 0x2a2440 : snow ? 0xb9c6d2 : 0xa07a50);
+    this.hemi.intensity = night ? 0.7 : snow ? 1.35 : 1.25;
+    this.sun.color.set(night ? 0xaac2ff : 0xfff0d6);
+    this.sun.intensity = night ? 0.85 : snow ? 2.0 : 2.3;
+    this.cloudMat.color.set(night ? '#56607e' : '#ffffff');
+    this.cloudMat.emissiveIntensity = night ? 0.02 : 0.25;
+    this.renderer.toneMappingExposure = night ? 1.15 : 1.05;
+    if (!this.moon) {
+      this.moon = new THREE.Mesh(new THREE.CircleGeometry(5, 32), new THREE.MeshBasicMaterial({ color: '#fff4d0', fog: false }));
+      this.moon.position.set(40, 42, -120); this.far.add(this.moon);
+    }
+    this.moon.visible = night;
+    if (snow && !this.snowPts) {
+      const n = 700, pos = new Float32Array(n * 3), R = seeded(5);
+      for (let i = 0; i < n; i++) { pos[i * 3] = (R() - 0.5) * 80; pos[i * 3 + 1] = R() * 40; pos[i * 3 + 2] = -30 + R() * 38; }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      this.snowPts = new THREE.Points(g, new THREE.PointsMaterial({ color: '#ffffff', size: 0.16, transparent: true, opacity: 0.9, depthWrite: false }));
+      this.snowPts.frustumCulled = false; this.scene.add(this.snowPts);
+    }
+    if (this.snowPts) this.snowPts.visible = snow;
   }
 
   _shared() {
@@ -318,7 +416,7 @@ export class View {
       }
     }
     this.clouds = [];
-    const cm = new THREE.MeshStandardMaterial({ color: '#ffffff', flatShading: true, roughness: 1, emissive: '#fff8ee', emissiveIntensity: 0.25 });
+    const cm = this.cloudMat = new THREE.MeshStandardMaterial({ color: '#ffffff', flatShading: true, roughness: 1, emissive: '#fff8ee', emissiveIntensity: 0.25 });
     for (let i = 0; i < 8; i++) {
       const g = new THREE.Group();
       for (let k = 0; k < 4; k++) {
@@ -337,13 +435,15 @@ export class View {
     if (this.chars) this._clearFire();
     for (const m of [...this.markers, ...this.starMeshes]) this.structG.remove(m);
     if (this.ghost) { this.structG.remove(this.ghost); this.ghost = null; }
-    this.markers = []; this.starMeshes = []; this.particles = []; this.flames = []; this.anchorPins = [];
+    this.markers = []; this.starMeshes = []; this.particles = []; this.flames = []; this.anchorPins = []; this.isoG = null;
     this.matches.count = 0; this.globs.count = 0; this.born.clear();
     this.terrainG.position.set(0, 0, 0);
     this.depth = this.depthGoal = 0;
     const R = seeded(level.id * 97 + 3);
-    const sand = level.biome === 'sand';
-    for (const poly of levelTerrain(level)) this.terrainG.add(this._terrainMesh(poly, R, sand));
+    const scn = this.sceneId || 'auto', snow = scn === 'snow';
+    const sand = !snow && (scn === 'desert' || (scn === 'auto' && level.biome === 'sand'));
+    this.snowy = snow;
+    for (const poly of levelTerrain(level)) this.terrainG.add(this._terrainMesh(poly, R, sand, snow));
     // landmark silhouette as a building guide
     this._silhouette(level);
     // scenery behind the plot
@@ -366,7 +466,7 @@ export class View {
       }
       a.position.set(x, y, 0);
       a.traverse(o => { if (o.isMesh) o.castShadow = true; });
-      a.userData = { pin, rings };
+      a.userData = { pin, rings, hx: x };
       this.terrainG.add(a); this.anchorPins.push(a);
     }
     this._updateAnchors();
@@ -418,14 +518,14 @@ export class View {
     }
   }
 
-  _terrainMesh(poly, R, sand) {
+  _terrainMesh(poly, R, sand, snow) {
     const shape = new THREE.Shape(poly.map(([x, y]) => new THREE.Vector2(x, y)));
     let g = new THREE.ExtrudeGeometry(shape, { depth: 140, bevelEnabled: false });
     g.translate(0, 0, -130);
     if (g.index) g = g.toNonIndexed();
     g.computeVertexNormals();
     const pos = g.attributes.position, nor = g.attributes.normal, col = new Float32Array(pos.count * 3);
-    const top = sand ? COL.sand : COL.grass;
+    const top = snow ? COL.snow : sand ? COL.sand : COL.grass;
     for (let i = 0; i < pos.count; i += 3) {
       const ny = nor.getY(i), y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
       let c;
@@ -444,7 +544,7 @@ export class View {
     const h = 1.4 + R() * 2;
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.14, h * 0.4, 5), new THREE.MeshStandardMaterial({ color: '#8a5a36', flatShading: true }));
     trunk.position.y = h * 0.2; g.add(trunk);
-    const greens = ['#3f9a4a', '#4fae52', '#2f8a44', '#62b85a'];
+    const greens = this.snowy ? ['#cfe0da', '#e4efeb', '#b7cfc6', '#f2f7f5'] : ['#3f9a4a', '#4fae52', '#2f8a44', '#62b85a'];
     const crown = new THREE.Mesh(R() > 0.4 ? new THREE.ConeGeometry(h * 0.35, h * 0.9, 6) : new THREE.IcosahedronGeometry(h * 0.38, 0),
       new THREE.MeshStandardMaterial({ color: greens[Math.floor(R() * 4)], flatShading: true, roughness: 0.9 }));
     crown.position.y = h * 0.8; g.add(crown);
@@ -538,13 +638,15 @@ export class View {
     this.design = design;
     if (fresh !== undefined) this.born.set(fresh, this.time);
     this._buildItems = () => {
-      const items = design.sticks.map(s => { const [x1, y1, x2, y2] = design.ends(s); return { id: s.id, x1, y1, x2, y2 }; });
+      const wraps = new Set((this.load && this.load.wraps) || []);
+      const items = design.sticks.map(s => { const [x1, y1, x2, y2] = design.ends(s); return { id: s.id, x1, y1, x2, y2, color: wraps.has(s.id) ? COL.carbon : undefined }; });
       const nodes = design.nodes.filter(n => n.kind !== 'anchor' && design.degree(n.id) + (n.kind === 'glue' ? 1 : 0) >= 2);
       return { items, nodes };
     };
     const { items, nodes } = this._buildItems();
     this._writeInstances(items, nodes);
     this._markers(design);
+    this._drawItems();
   }
   _markers(design) {
     for (const m of this.markers) this.structG.remove(m);
@@ -565,7 +667,7 @@ export class View {
     const mat = this.S.ghostMat;
     mat.emissive.set(pv.ok ? '#1f7a36' : '#9a1a10');
     mat.color.set(pv.ok ? '#d9ffe0' : '#ffb3a8');
-    const m = new THREE.Mesh(this.models.matchGeo, mat);
+    const m = new THREE.Mesh(this.skinGeo || this.models.matchGeo, mat);
     m.scale.set(len, L, L); g.add(m);
     g.position.set((pv.x1 + pv.x2) / 2, (pv.y1 + pv.y2) / 2, 0);
     g.rotation.z = Math.atan2(pv.y2 - pv.y1, pv.x2 - pv.x1);
@@ -574,6 +676,147 @@ export class View {
     const sc = pv.end.kind === 'free' ? 0.7 : 1.25; ring.scale.set(sc, sc, sc);
     g.add(ring);
     this.ghost = g; this.structG.add(g);
+  }
+
+  // ------------------------------------------------------------- 防震道具 (shop items)
+  // build mode: what the player has fitted to this design ({ steel, iso, wraps, struts, damper }); the sim carries its own
+  setItems(load) { this.load = load; if (!this.sim && this.design) this.syncDesign(this.design); }
+  // strut being placed: first joint picked
+  setPick(nodeId) { this.pick = nodeId; this._drawItems(); }
+  _itemKit() {
+    if (this.K) return this.K;
+    const K = this.K = {};
+    const std = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, flatShading: true, roughness: 0.5, ...o });
+    K.coilMat = std('#f2c230', { metalness: 0.35, roughness: 0.35 });
+    K.rodMat = std('#d5dce2', { metalness: 0.6, roughness: 0.3 });
+    K.tubeMat = std('#3f4651', { metalness: 0.4 });
+    K.ballMat = std('#e3a93a', { metalness: 0.55, roughness: 0.3, emissive: '#3a2400', emissiveIntensity: 0.35 });
+    K.cableMat = std('#30343a', { metalness: 0.4 });
+    K.slabMat = std('#d6cfc2', { roughness: 0.9 });
+    K.moatMat = std('#3a2a20', { roughness: 1 });
+    K.rubberMat = std('#202328', { roughness: 0.85 });
+    K.leadMat = std('#9aa3ad', { metalness: 0.5 });
+    K.pickMat = new THREE.MeshBasicMaterial({ color: '#36e0ff', transparent: true, opacity: 0.95, depthTest: false });
+    const cyl = (r, x0, x1, seg = 8) => { const g = new THREE.CylinderGeometry(r, r, x1 - x0, seg); g.rotateZ(-Math.PI / 2); g.translate((x0 + x1) / 2, 0, 0); return g; };
+    // spring-damper strut, 1 long on x: a yellow coil around a piston
+    const pts = [], turns = 7, r = 0.072;
+    for (let i = 0; i <= 160; i++) { const u = i / 160, a = u * turns * Math.PI * 2; pts.push(new THREE.Vector3(0.12 + u * 0.76, Math.cos(a) * r, Math.sin(a) * r)); }
+    K.coilGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, 0.015, 5);
+    K.rodGeo = cyl(0.022, 0.04, 0.96);
+    K.tubeGeo = cyl(0.046, 0.1, 0.52);
+    K.capGeo = new THREE.SphereGeometry(0.065, 10, 8);
+    K.ballGeo = new THREE.IcosahedronGeometry(0.3, 2);
+    K.cableGeo = cyl(0.012, 0, 1, 5);
+    K.puckGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.09, 14);
+    K.coreGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.1, 10);
+    return K;
+  }
+  _strutMesh() {
+    const K = this._itemKit(), g = new THREE.Group(), body = new THREE.Group();
+    body.add(new THREE.Mesh(K.coilGeo, K.coilMat), new THREE.Mesh(K.rodGeo, K.rodMat), new THREE.Mesh(K.tubeGeo, K.tubeMat));
+    const ca = new THREE.Mesh(K.capGeo, K.rodMat), cb = new THREE.Mesh(K.capGeo, K.rodMat);
+    g.add(body, ca, cb); g.userData = { body, cb };
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return g;
+  }
+  _placeStrut(g, x1, y1, x2, y2, z) {
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    g.position.set(x1, y1, z); g.rotation.set(0, 0, Math.atan2(y2 - y1, x2 - x1));
+    g.userData.body.scale.set(len, 1, 1); g.userData.cb.position.set(len, 0, 0);
+  }
+  _damperMesh() {
+    const K = this._itemKit(), g = new THREE.Group();
+    const ball = new THREE.Mesh(K.ballGeo, K.ballMat); ball.castShadow = true; g.add(ball);
+    const cables = [];
+    for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(K.cableGeo, K.cableMat); g.add(c); cables.push(c); }
+    g.userData = { ball, cables };
+    return g;
+  }
+  // hang the ball at (bx, by) from the joint at (hx, hy)
+  _placeDamper(g, hx, hy, bx, by, z) {
+    const { ball, cables } = g.userData, R = 0.3;
+    ball.position.set(bx, by, z);
+    cables.forEach((c, i) => {
+      const a = i * Math.PI / 2 + Math.PI / 4, ox = Math.cos(a) * R * 0.55, oz = Math.sin(a) * R * 0.55;
+      const sx = hx + ox * 0.3, sz = z + oz * 0.3, ex = bx + ox, ey = by + R * 0.8, ez = z + oz;
+      const dx = ex - sx, dy = ey - hy, dz = ez - sz, len = Math.hypot(dx, dy, dz);
+      c.position.set(sx, hy, sz); c.scale.set(len, 1, 1);
+      tmpP.set(dx, dy, dz).normalize(); c.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), tmpP);
+    });
+  }
+  // 鉛心橡膠隔震墊: a concrete slab under the anchors, sitting in a gap it can slide in, on rubber/lead bearings
+  _isoMesh() {
+    const K = this._itemKit(), lv = this.level, P = PARAMS;
+    const ax = lv.anchors.map(a => a[0] * L), cx = (Math.min(...ax) + Math.max(...ax)) / 2, hw = (Math.max(...ax) - Math.min(...ax)) / 2 + 0.3;
+    const g = new THREE.Group(), zd = 1.5;
+    const moat = new THREE.Mesh(new THREE.BoxGeometry((hw + P.isoTravel) * 2, 0.02, zd * 2 + 0.3), K.moatMat);
+    moat.position.set(cx, 0.005, 0); moat.receiveShadow = true; g.add(moat);
+    const slab = new THREE.Group();
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(hw * 2, 0.08, zd * 2), K.slabMat);
+    plate.position.y = 0.035; plate.receiveShadow = true; plate.castShadow = true; slab.add(plate);
+    const n = Math.max(2, Math.round(hw * 2 / 1.6) + 1);
+    for (let i = 0; i < n; i++) for (const z of [-zd, zd]) {
+      const x = -hw + 0.22 + (hw * 2 - 0.44) * i / (n - 1);
+      const pk = new THREE.Mesh(K.puckGeo, K.rubberMat); pk.position.set(x, 0.03, z); slab.add(pk);
+      const core = new THREE.Mesh(K.coreGeo, K.leadMat); core.position.set(x, 0.04, z); slab.add(core);
+    }
+    slab.position.x = cx; g.add(slab);
+    g.userData = { slab, cx };
+    return g;
+  }
+  _drawItems() {
+    if (this.itemG) { this.structG.remove(this.itemG); }
+    if (this.isoG) { this.terrainG.remove(this.isoG); this.isoG = null; }
+    this.itemG = new THREE.Group(); this.structG.add(this.itemG);
+    this.itemRefs = { struts: [], damper: null };
+    const sim = this.sim, ld = sim ? sim.opts : this.load, d = sim ? sim.design : this.design;
+    const steel = !!(ld && ld.steel);
+    this.S.glueMat.color.copy(steel ? COL.steel : COL.glue); this.S.glueMat.metalness = steel ? 0.6 : 0; this.S.glueMat.roughness = steel ? 0.3 : 0.5;
+    if (!ld || !d || !this.level) return;
+    if (ld.iso && this.level.anchors.length) { this.isoG = this._isoMesh(); this.terrainG.add(this.isoG); }
+    if (sim) {
+      for (const st of sim.struts) for (const s of [-1, 1]) { const m = this._strutMesh(); this.itemG.add(m); this.itemRefs.struts.push({ m, st, s }); }
+      if (sim.damper) { const m = this._damperMesh(); this.itemG.add(m); this.itemRefs.damper = m; }
+      this._syncItems(sim);
+      return;
+    }
+    for (const st of ld.struts || []) {
+      const a = d.node(st.a), b = d.node(st.b); if (!a || !b) continue;
+      const m = this._strutMesh(); this._placeStrut(m, a.x, a.y, b.x, b.y, 0.14); this.itemG.add(m);
+    }
+    const dn = ld.damper !== null && ld.damper !== undefined ? d.node(ld.damper) : null;
+    if (dn) { const m = this._damperMesh(); this._placeDamper(m, dn.x, dn.y, dn.x, dn.y - PARAMS.damperDrop, 0); this.itemG.add(m); }
+    const pk = this.pick !== null && this.pick !== undefined ? d.node(this.pick) : null;
+    if (pk && this.buildMode) {
+      const ring = new THREE.Mesh(this.S.ringGeo, this._itemKit().pickMat); ring.position.set(pk.x, pk.y, 0.4); ring.scale.setScalar(1.6); ring.renderOrder = 7;
+      this.itemG.add(ring);
+    }
+  }
+  _syncItems(sim) {
+    const R = this.itemRefs; if (!R) return;
+    const go = sim.ground.getPosition();
+    if (this.isoG && sim.slab) {
+      const off = sim.slab.getPosition().x - go.x - sim.iso.x0;
+      this.isoG.userData.slab.position.x = this.isoG.userData.cx + off;
+      for (const a of this.anchorPins) a.position.x = a.userData.hx + off;
+    }
+    const d = Math.max(this.depth, 0.001);
+    for (const { m, st, s } of R.struts) {
+      const pa = st.A.body.getWorldPoint(st.A.local), pb = st.B.body.getWorldPoint(st.B.local);
+      this._placeStrut(m, pa.x, pa.y, pb.x, pb.y, s * d);
+    }
+    if (R.damper && sim.damper) {
+      const D = sim.damper, h = D.host.getWorldPoint(D.local), sw = Math.max(-0.5, Math.min(0.5, D.swing * 0.6));
+      this._placeDamper(R.damper, h.x, h.y, h.x + sw, h.y - PARAMS.damperDrop + Math.abs(sw) * 0.15, 0);
+    }
+  }
+  fxYield(x, y) {   // 鋼骨 bending: a short cold flash instead of a snap
+    const d = this.depth;
+    for (const z of d > 0.01 ? [-d, d] : [0]) {
+      const m = new THREE.Mesh(this.S.ringGeo, new THREE.MeshBasicMaterial({ color: '#bfe6ff', transparent: true, opacity: 0.9, depthWrite: false }));
+      m.position.set(x, y, z); this.fxG.add(m);
+      this.particles.push({ m, vx: 0, vy: 0, vz: 0, life: 0.45, age: 0, g: 0, kind: 'ring' });
+    }
   }
 
   // ------------------------------------------------------------- simulation sync
@@ -593,6 +836,7 @@ export class View {
     this.depthGoal = DEPTH;
     this.camGoal.yaw = 0.42; this.camGoal.pitch = 0.2;
     this._clearFire();
+    this._drawItems();
   }
   exitSim(design) {
     this.sim = null; this.buildMode = true;
@@ -603,6 +847,7 @@ export class View {
     this._clearFire();
     this.depthGoal = 0; this.depth = 0; this._updateAnchors();
     for (const s of this.starMeshes) s.position.copy(s.userData.home);
+    for (const a of this.anchorPins) a.position.x = a.userData.hx;
     this.syncDesign(design);
     this.camGoal.yaw = -0.06; this.camGoal.pitch = 0.1;
     this._applyGoal();
@@ -645,7 +890,7 @@ export class View {
         }
       } else {
         const k = Math.min(1, sim.stress.get(id) || 0);
-        color = tmpC.setRGB(1, 1 - 0.6 * k, 1 - 0.8 * k).clone();
+        color = sim.wraps.has(id) ? COL.carbon.clone().lerp(COL.strain, k * 0.8) : tmpC.setRGB(1, 1 - 0.6 * k, 1 - 0.8 * k).clone();
       }
       items.push({ id, x1: ax, y1: ay, x2: bx, y2: by, color });
     }
@@ -662,6 +907,7 @@ export class View {
       const m = this.starMeshes[i]; if (!m) return;
       const p = st.body.getWorldPoint(st.local); m.position.set(p.x, p.y, 0);
     });
+    this._syncItems(sim);
   }
 
   // ------------------------------------------------------------- effects
@@ -708,12 +954,13 @@ export class View {
     const [x0, x1, y0, y1] = this.level.view.map(v => v * L);
     const W = this.canvas.clientWidth || 1, H = this.canvas.clientHeight || 1;
     const fov = this.camera.fov * Math.PI / 180, tn = Math.tan(fov / 2), aspect = W / H;
-    const usable = Math.max(0.3, (H - this.pad.top - this.pad.bottom) / H);
-    const dH = ((y1 - y0) / 2) / tn / usable, dW = ((x1 - x0) / 2) / (tn * aspect);
+    const pl = this.pad.left || 0, pr = this.pad.right || 0;   // item tray / zoom buttons at the sides
+    const usable = Math.max(0.3, (H - this.pad.top - this.pad.bottom) / H), usableW = Math.max(0.5, (W - pl - pr) / W);
+    const dH = ((y1 - y0) / 2) / tn / usable, dW = ((x1 - x0) / 2) / (tn * aspect) / usableW;
     const dist = Math.max(dH, dW) * 1.04 + 1.5;
     const wpp = 2 * dist * tn / H;
-    const shiftY = (this.pad.bottom - this.pad.top) / 2 * wpp;
-    this.fit = { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 - shiftY, dist };
+    const shiftY = (this.pad.bottom - this.pad.top) / 2 * wpp, shiftX = (pl - pr) / 2 * wpp;
+    this.fit = { cx: (x0 + x1) / 2 - shiftX, cy: (y0 + y1) / 2 - shiftY, dist };
     this._applyGoal();
     if (snap) { this.cam.target.copy(this.camGoal.target); this.cam.dist = this.camGoal.dist; this.cam.yaw = this.camGoal.yaw; this.cam.pitch = this.camGoal.pitch; }
   }
@@ -809,6 +1056,16 @@ export class View {
       if (!this.sim && this.design) this.syncDesign(this.design);
     }
     for (const cl of this.clouds) { cl.position.x += dt * 0.6; if (cl.position.x > 90) cl.position.x = -90; }
+    if (this.snowPts && this.snowPts.visible) {
+      const a = this.snowPts.geometry.attributes.position, cx = this.cam.target.x;
+      for (let i = 0; i < a.count; i++) {
+        let y = a.getY(i) - dt * (0.9 + (i % 5) * 0.15), x = a.getX(i) + Math.sin(this.time * 0.8 + i) * dt * 0.3;
+        if (y < -1) { y = 39; }
+        if (x < cx - 40) x += 80; else if (x > cx + 40) x -= 80;
+        a.setY(i, y); a.setX(i, x);
+      }
+      a.needsUpdate = true;
+    }
     for (const s of this.starMeshes) { s.userData.spin.rotation.y += dt * 1.6; s.scale.setScalar(1 + Math.sin(this.time * 3) * 0.06); }
     if (this.buildMode) {
       const s = 1 + Math.sin(this.time * 4) * 0.12;
@@ -822,6 +1079,7 @@ export class View {
       p.vy -= p.g * dt; p.m.position.x += p.vx * dt; p.m.position.y += p.vy * dt; p.m.position.z += p.vz * dt;
       if (p.kind === 'spark') { p.m.material.opacity = 1 - u; p.m.rotation.x += dt * 10; }
       else if (p.kind === 'dust') { p.m.material.opacity = 0.7 * (1 - u); p.m.scale.multiplyScalar(1 + dt * p.grow); }
+      else if (p.kind === 'ring') { p.m.scale.setScalar(1 + u * 2.2); p.m.material.opacity = 0.9 * (1 - u); p.m.lookAt(this.camera.position); }
       else if (p.kind === 'conf') { p.m.rotation.x += dt * p.spin; p.m.rotation.y += dt * p.spin * 0.7; p.vx += Math.sin(p.age * 3 + i) * dt; }
     }
     let fl = 0;

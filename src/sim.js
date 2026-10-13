@@ -1,5 +1,5 @@
 // 火柴建築師 Match Architect — level data, build-graph (Design) and 2D physics (Sim) on Planck.js
-import { World, Vec2, Box, Chain, RevoluteJoint } from 'planck';
+import { World, Vec2, Box, Chain, Circle, RevoluteJoint, PrismaticJoint, DistanceJoint } from 'planck';
 
 export const L = 2.0;            // fixed match length (m)
 export const TH = 0.12;          // match thickness (m)
@@ -19,6 +19,19 @@ export const PARAMS = {
   meltDelay: [0.06, 0.28], // s from the fire reaching a glue joint to the joint letting go
   glueFade: 1.8,           // s after the failure for all remaining glue to weaken to glueFloor
   glueFloor: 0.1,
+  // 防震道具 (shop items)
+  steelYield: 1.0,         // 高韌性鋼骨: joints start to yield (bend) at this share of breakForce…
+  steelBreak: 1.7,         // …and only snap at this share
+  cfrpLight: 0.6,          // 碳纖維包覆: wrapped matches weigh this much
+  cfrpStrong: 1.8,         // and their joints are this much stronger
+  isoFreq: 0.9,            // 隔震墊: natural frequency of the isolated base (Hz), well below the quake's
+  isoDamping: 0.3,
+  isoTravel: 0.9,          // how far the base may slide each way (m)
+  strutFreq: 4,            // 彈簧避震器: spring-damper brace stiffness (Hz) and damping
+  strutDamping: 0.9,
+  damperShare: 0.8,        // 阻尼球: share of the sway it takes off the matches right next to it…
+  damperReach: 4.5,        // …fading to nothing this many match lengths away
+  damperDrop: 0.6,         // how far below its joint the ball is drawn (m)
 };
 
 // 震度 ladder: ground amplitude A (m) and frequency f (Hz)
@@ -346,8 +359,11 @@ export class Design {
 
 // ---------------------------------------------------------------- Sim: physics run
 export class Sim {
-  constructor(level, design, P = PARAMS) {
+  // opts = shop items for this quake: { steel, iso, wraps: [stickId], struts: [{a, b}], damper: nodeId }
+  constructor(level, design, P = PARAMS, opts = {}) {
     this.level = level; this.design = design; this.P = P;
+    const o = this.opts = { ...(opts || {}) };
+    this.wraps = new Set(o.wraps || []);
     this.t = 0; this.state = 'running'; this.reason = ''; this.events = []; this.breaks = 0;
     const w = this.world = new World({ gravity: new Vec2(0, -P.gravity) });
     const g = this.ground = w.createBody({ type: 'kinematic', position: new Vec2(0, 0) });
@@ -360,21 +376,38 @@ export class Sim {
       const [x1, y1, x2, y2] = design.ends(s);
       const len = Math.hypot(x2 - x1, y2 - y1);
       const b = w.createBody({ type: 'dynamic', position: new Vec2((x1 + x2) / 2, (y1 + y2) / 2), angle: Math.atan2(y2 - y1, x2 - x1), angularDamping: 0.1, linearDamping: 0.02 });
-      b.createFixture(new Box(len / 2, TH / 2), { density: P.stickDensity, friction: 0.8, filterCategoryBits: CAT.STRUCT, filterMaskBits: CAT.TERRAIN });
+      const dens = P.stickDensity * (this.wraps.has(s.id) ? P.cfrpLight : 1);
+      // on isolation bearings the frame doesn't rub on the soil (it touches the ground again once it collapses)
+      b.createFixture(new Box(len / 2, TH / 2), { density: dens, friction: 0.8, filterCategoryBits: CAT.STRUCT, filterMaskBits: o.iso ? 0 : CAT.TERRAIN });
       b.stickId = s.id;
       this.bodies.set(s.id, b);
     }
     this.joints = [];
+    let mStruct = 0; for (const b of this.bodies.values()) mStruct += b.getMass();
+    this.mStruct = mStruct;
+    // 鉛心橡膠隔震墊: the anchors sit on one heavy base that can slide, held to the ground by rubber (spring) and lead (damper)
+    let base = g;
+    if (o.iso && level.anchors.length) {
+      const ax = level.anchors.map(a => a[0] * L), cx = (Math.min(...ax) + Math.max(...ax)) / 2, hw = (Math.max(...ax) - Math.min(...ax)) / 2 + 0.3;
+      const slab = this.slab = w.createBody({ type: 'dynamic', position: new Vec2(cx, 0), fixedRotation: true });
+      const mSlab = Math.max(0.5, mStruct * 0.6);
+      slab.createFixture(new Box(hw, 0.05), { density: mSlab / (hw * 2 * 0.1), filterCategoryBits: 0, filterMaskBits: 0 });
+      w.createJoint(new PrismaticJoint({ enableLimit: true, lowerTranslation: -P.isoTravel, upperTranslation: P.isoTravel }, g, slab, new Vec2(cx, 0), new Vec2(1, 0)));
+      const M = mSlab + mStruct, om = 2 * Math.PI * P.isoFreq;
+      this.iso = { x0: cx, k: M * om * om, c: 2 * P.isoDamping * M * om };
+      base = slab;
+    }
+    this.base = base;
     const pin = (ba, bb, x, y, nodeId) => {
       const j = w.createJoint(new RevoluteJoint({ enableMotor: true, motorSpeed: 0, maxMotorTorque: P.jointTorque, collideConnected: false }, ba, bb, new Vec2(x, y)));
       const sticks = [ba.stickId, bb.stickId].filter(v => v !== undefined);
       const u = new Map();   // where along each match (0 = end a, 1 = end b) this glue sits
       for (const sid of sticks) { const [ax, ay, bx, by] = design.ends(design.stick(sid)); u.set(sid, segDist(x, y, ax, ay, bx, by).t); }
-      this.joints.push({ j, nodeId, sticks, u, f: 0, broken: false, x, y });
+      this.joints.push({ j, nodeId, sticks, u, f: 0, broken: false, x, y, peak: 0, anchor: ba === base, cfrp: sticks.some(sid => this.wraps.has(sid)) });
     };
     for (const n of design.nodes) {
       const inc = design.sticks.filter(s => s.a === n.id || s.b === n.id);
-      if (n.kind === 'anchor') { for (const s of inc) pin(g, this.bodies.get(s.id), n.x, n.y, n.id); continue; }
+      if (n.kind === 'anchor') { for (const s of inc) pin(base, this.bodies.get(s.id), n.x, n.y, n.id); continue; }
       if (n.kind === 'glue' && this.bodies.has(n.host)) { const hb = this.bodies.get(n.host); for (const s of inc) pin(hb, this.bodies.get(s.id), n.x, n.y, n.id); continue; }
       if (inc.length >= 2) { const hub = this.bodies.get(inc[0].id); for (const s of inc.slice(1)) pin(hub, this.bodies.get(s.id), n.x, n.y, n.id); }
     }
@@ -396,6 +429,51 @@ export class Sim {
     this.stress = new Map();
     this.burn = new Map();   // stickId → { lo, hi, len } burnt span along the match (0 = end a, the match head)
     this.fireT = null;       // time of the first failure (fire starts there)
+    // 彈簧避震器: spring-damper braces between two joints (not matches, can't break)
+    this.struts = [];
+    for (const st of o.struts || []) {
+      const A = this.holder(st.a), B = this.holder(st.b);
+      if (!A || !B || A.body === B.body) continue;
+      const pa = A.body.getWorldPoint(A.local), pb = B.body.getWorldPoint(B.local), len = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+      if (len < 0.2) continue;
+      w.createJoint(new DistanceJoint({ frequencyHz: P.strutFreq, dampingRatio: P.strutDamping, length: len, collideConnected: false }, A.body, B.body, pa, pb));
+      this.struts.push({ A, B, len });
+    }
+    // 阻尼球: hangs below a joint and swings against the shaking; the matches around it only have to carry part of
+    // their own sway (strongest next to the ball, fading out over a few match lengths). Gameplay model of a mass damper.
+    const H = o.damper !== undefined && o.damper !== null ? this.holder(o.damper) : null;
+    if (H && H.body !== base) {
+      const n = design.node(o.damper), wts = [];
+      for (const b of this.bodies.values()) {
+        const p = b.getPosition(), d = Math.hypot(p.x - n.x, p.y - n.y), wgt = Math.max(0, 1 - d / (P.damperReach * L));
+        if (wgt > 0) wts.push([b, wgt * P.damperShare]);
+      }
+      this.damper = { nodeId: n.id, x: n.x, y: n.y, host: H.body, local: H.local, wts, swing: 0, vel: 0, gvPrev: 0 };
+    }
+  }
+  // the body a joint (node) rides on, and where on it
+  holder(nodeId) {
+    const n = this.design.node(nodeId); if (!n) return null;
+    let body = null;
+    if (n.kind === 'anchor') body = this.base;
+    else if (n.kind === 'glue' && this.bodies.has(n.host)) body = this.bodies.get(n.host);
+    else { const st = this.design.sticks.find(s => s.a === n.id || s.b === n.id); body = st ? this.bodies.get(st.id) : null; }
+    return body ? { body, local: body.getLocalPoint(new Vec2(n.x, n.y)) } : null;
+  }
+  _itemForces() {
+    if (this.iso) {
+      const s = this.slab, gp = this.ground.getPosition(), gv = this.ground.getLinearVelocity();
+      const dx = s.getPosition().x - gp.x - this.iso.x0, dv = s.getLinearVelocity().x - gv.x;
+      s.applyForceToCenter(new Vec2(-this.iso.k * dx - this.iso.c * dv, 0), true);
+    }
+  }
+  _damperForces(h) {
+    const D = this.damper; if (!D) return;
+    const gv = this.ground.getLinearVelocity().x, ag = (gv - D.gvPrev) / h; D.gvPrev = gv;
+    if (this.fireT !== null) return;   // once something has failed it can't save the building
+    for (const [b, w] of D.wts) b.applyForceToCenter(new Vec2(b.getMass() * ag * w, 0), true);
+    // the ball itself: a pendulum pushed the other way (drawn by the renderer)
+    D.vel += (-ag * 0.9 - D.swing * 30 - D.vel * 3) * h; D.swing += D.vel * h;
   }
 
   quakeEnv(t) {
@@ -419,6 +497,8 @@ export class Sim {
       const [tx, ty] = this._quakeTarget(this.t + h);
       const gp = this.ground.getPosition();
       this.ground.setLinearVelocity(new Vec2((tx - gp.x) / h, (ty - gp.y) / h));
+      if (this.iso) this._itemForces();
+      if (this.damper) this._damperForces(h);
       this.world.step(h, P.velIters, P.posIters);
       this.t += h;
       this._checkJoints(h);
@@ -460,7 +540,7 @@ export class Sim {
     J.broken = true; this.breaks++;
     const p = J.j.getAnchorA();
     this.world.destroyJoint(J.j);
-    this.events.push({ type, x: p.x, y: p.y, t: this.t });
+    this.events.push({ type, x: p.x, y: p.y, jx: J.x, jy: J.y, t: this.t });
     if (this.fireT !== null) for (const sid of J.sticks) this.ignite(sid, J.u.get(sid));
   }
 
@@ -474,9 +554,16 @@ export class Sim {
       const F = J.j.getReactionForce(1 / h).length();
       J.f += (F - J.f) * a;
       const hot = this.fireT !== null && J.sticks.some(sid => this.burn.has(sid));
-      const limit = P.breakForce * fade * (hot ? 0.5 : 1);
-      const s = J.f / P.breakForce;
-      for (const sid of J.sticks) this.stress.set(sid, Math.max(this.stress.get(sid) || 0, s));
+      const cap = P.breakForce * (J.cfrp ? P.cfrpStrong : 1);   // what this joint can hold
+      const s = J.f / cap;
+      J.peak = Math.max(J.peak, s);
+      let limit = cap * fade * (hot ? 0.5 : 1);
+      if (this.opts.steel && this.fireT === null) {
+        // 高韌性鋼骨: past the yield point the joint bends (its grip loosens, it soaks up energy) instead of snapping
+        if (!J.yielding && s > P.steelYield && this.t > 0.15) { J.yielding = true; J.j.setMaxMotorTorque(P.jointTorque * 0.3); this.events.push({ type: 'yield', x: J.x, y: J.y }); }
+        limit = cap * P.steelBreak;
+      }
+      for (const sid of J.sticks) this.stress.set(sid, Math.max(this.stress.get(sid) || 0, this.opts.steel ? s / P.steelBreak * 1.4 : s));
       if (J.f > limit && this.t > 0.15) {
         const first = this.fireT === null;
         this._breakJoint(J, 'break');
@@ -489,6 +576,7 @@ export class Sim {
   _fail(reason, igniteStar, code) {
     if (this.state !== 'running') return;
     this.state = 'lost'; this.reason = reason; this.reasonCode = code; this.endT = this.t;
+    if (this.opts.iso) for (const b of this.bodies.values()) for (let f = b.getFixtureList(); f; f = f.getNext()) f.setFilterMaskBits(CAT.TERRAIN);
     this.fireT = this.t;
     if (igniteStar) this.ignite(igniteStar.body.stickId, 0.5);
     this.events.push({ type: 'lost', reason });
@@ -505,6 +593,26 @@ export class Sim {
       }
     }
     if (this.state === 'running' && this.t >= QUAKE_TIME) { this.state = 'won'; this.endT = this.t; this.events.push({ type: 'won' }); }
+  }
+
+  // 結構檢測儀: run the quake on this copy; report each joint's peak load (1 = breaks) and the first failure
+  *scan(dt = 1 / 60) {
+    let first = null, steps = 0;
+    const lim = this.opts.steel ? this.P.steelBreak : 1;
+    while (this.t < QUAKE_TIME + 0.1 && !first) {
+      this.step(dt); steps++;
+      // where it fails, in design coordinates so the marker sits on the joint the player built
+      for (const ev of this.events.splice(0)) if (ev.type === 'break' && !first) first = { x: ev.jx, y: ev.jy, t: +this.t.toFixed(1) };
+      if (this.state === 'lost' && !first) { const st = this.stars.find(s => s.lost) || this.stars[0]; first = { star: true, x: st ? st.home.x : 0, y: st ? st.home.y : 0, t: +this.t.toFixed(1) }; }
+      if (steps % 20 === 0) yield Math.min(1, this.t / QUAKE_TIME);
+    }
+    const byPoint = new Map();
+    for (const J of this.joints) {
+      const k = J.x.toFixed(2) + ',' + J.y.toFixed(2), v = byPoint.get(k);
+      const s = J.peak / lim;
+      if (!v || s > v.s) byPoint.set(k, { x: J.x, y: J.y, s });
+    }
+    return { first, peaks: [...byPoint.values()], survived: !first };
   }
 
   runHeadless(maxT = QUAKE_TIME + 0.5, dt = 1 / 60) {

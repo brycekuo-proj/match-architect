@@ -69,7 +69,7 @@ with sync_playwright() as p:
 
     cdp = ctx.new_cdp_session(page)
     # pinch open in the empty sky
-    cx, cy = 195, 330
+    cx, cy = 235, 330   # right of the item tray on the left
     w_before = ev(page, f'__mq.view.screenToWorld({cx}, {cy})')
     pinch(cdp, cx, cy, 80, 240)
     z3 = zoom(page); check(z3 < 0.45, f'pinch open zooms in (zoom {z3}, expected ~1/3)')

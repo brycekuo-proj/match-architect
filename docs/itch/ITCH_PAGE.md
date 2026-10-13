@@ -52,6 +52,7 @@ Free, plays in your browser on phone and desktop. English and 繁體中文.
 - Every match costs 1 coin, paid when the quake starts.
 - Pass, and every unused match in your quota pays back 2 coins.
 - Finish at or under the target count for ★★★.
+- Spend coins in the shop (from the title screen) on anti-quake items and new looks. Runs that use anti-quake items still earn stars and coins but don't go on the leaderboard.
 
 ## Controls
 
@@ -64,6 +65,8 @@ Free, plays in your browser on phone and desktop. English and 繁體中文.
 - 13 jobs: 3 training builds and 10 world landmarks (Great Sphinx, Great Pyramid, Leaning Tower of Pisa, Eiffel Tower, Tokyo Tower, Oriental Pearl Tower, Taipei 101, Tokyo Skytree, Burj Khalifa, Sagrada Família)
 - Real-time rigid-body physics: every match is a body, and every glue joint can snap
 - Burning collapse: fire spreads along the matches and melts the glue it reaches
+- A shop of one-use anti-quake items based on real seismic engineering: a tuned mass damper like the one in Taipei 101, lead-rubber base isolation, spring dampers, carbon-fibre wrap, ductile steel and a structure scanner that shows where your frame will break. Use them from the item tray while you build
+- Match skins (bamboo, candy, glow, gold), scenes (desert, snow, night) and a cabinet for every landmark model you've earned
 - 13 low-poly landmark models, revealed on a turntable when you pass
 - Every sound and the marimba music are synthesized live; there are no audio files
 - One 1.6 MB HTML file

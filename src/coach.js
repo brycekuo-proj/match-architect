@@ -132,3 +132,72 @@ export class Coach {
     this.ripple.setAttribute('cx', x); this.ripple.setAttribute('cy', y); this.ripple.setAttribute('r', 10 + press * 22); this.ripple.style.opacity = 1 - press * 0.6;
   }
 }
+
+// 工頭示範: the job's reference build drawn over the scene. Parts already built fade out, the rest are dashed.
+export class HintLayer {
+  constructor(root) {
+    this.root = root; this.edges = null;
+    this.svg = el('svg', { class: 'hint-svg', width: '100%', height: '100%' }, root);
+    this.lines = []; this.dots = [];
+  }
+  show(edges) {
+    this.edges = edges;
+    while (this.lines.length < edges.length) this.lines.push(el('line', { class: 'h-line' }, this.svg));
+    for (let i = 0; i < this.lines.length; i++) this.lines[i].style.display = i < edges.length ? '' : 'none';
+    const pts = [];
+    for (const [a, b] of edges) for (const p of [a, b]) if (!pts.some(q => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1e-3)) pts.push(p);
+    this.pts = pts;
+    while (this.dots.length < pts.length) this.dots.push(el('circle', { class: 'h-dot', r: 4.5 }, this.svg));
+    for (let i = 0; i < this.dots.length; i++) this.dots[i].style.display = i < pts.length ? '' : 'none';
+    this.root.hidden = false;
+  }
+  hide() { this.edges = null; this.root.hidden = true; }
+  get on() { return !!this.edges; }
+  update(state, design, view) {
+    if (!this.edges) return;
+    if (state !== 'build') { this.root.hidden = true; return; }
+    this.root.hidden = false;
+    const r = this.root.getBoundingClientRect();
+    const sp = p => { const s = view.worldToScreen(p[0], p[1]); return [s.x - r.left, s.y - r.top]; };
+    const near = (n, p) => Math.hypot(n.x - p[0], n.y - p[1]) < 0.08 * L;
+    this.edges.forEach(([a, b], i) => {
+      const [x1, y1] = sp(a), [x2, y2] = sp(b), ln = this.lines[i];
+      ln.setAttribute('x1', x1); ln.setAttribute('y1', y1); ln.setAttribute('x2', x2); ln.setAttribute('y2', y2);
+      const built = design.sticks.some(s => { const p = design.node(s.a), q = design.node(s.b); return (near(p, a) && near(q, b)) || (near(p, b) && near(q, a)); });
+      ln.classList.toggle('built', built);
+    });
+    this.pts.forEach((p, i) => { const [x, y] = sp(p); this.dots[i].setAttribute('cx', x); this.dots[i].setAttribute('cy', y); });
+  }
+}
+
+// 結構檢測儀 result: every joint coloured by its peak load during the test quake, the first failure circled
+const loadColor = s => s >= 1 ? '#ff3b2f' : s >= 0.8 ? '#ff8a2a' : s >= 0.5 ? '#ffcf3a' : '#4cc76a';
+export class ScanLayer {
+  constructor(root) { this.root = root; this.res = null; this.svg = el('svg', { class: 'scan-svg', width: '100%', height: '100%' }, root); }
+  show(res) {
+    this.res = res;
+    while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
+    const peaks = res.peaks.slice().sort((a, b) => a.s - b.s);
+    this.dots = peaks.map(p => ({ p, c: el('circle', { class: 'sc-dot', r: (4 + 6 * Math.min(1, p.s)).toFixed(1), fill: loadColor(p.s) }, this.svg) }));
+    // label the heaviest joints with their load
+    this.labels = peaks.slice(-3).filter(p => p.s >= 0.3).map(p => ({ p, e: Object.assign(el('text', { class: 'sc-lbl', 'text-anchor': 'middle' }, this.svg), { textContent: Math.round(p.s * 100) + '%' }) }));
+    this.ring = null;
+    if (res.first) {
+      const f = res.first;
+      this.ring = { p: f, c: el('circle', { class: 'sc-first', r: 16 }, this.svg), e: Object.assign(el('text', { class: 'sc-lbl sc-bad', 'text-anchor': 'middle' }, this.svg), { textContent: t('scan.first') }) };
+    }
+    this.root.hidden = false;
+  }
+  hide() { this.res = null; this.root.hidden = true; }
+  get on() { return !!this.res; }
+  update(state, view) {
+    if (!this.res) return;
+    if (state !== 'build') { this.root.hidden = true; return; }
+    this.root.hidden = false;
+    const r = this.root.getBoundingClientRect();
+    const sp = p => { const s = view.worldToScreen(p.x, p.y); return [s.x - r.left, s.y - r.top]; };
+    for (const { p, c } of this.dots) { const [x, y] = sp(p); c.setAttribute('cx', x); c.setAttribute('cy', y); }
+    for (const { p, e } of this.labels) { const [x, y] = sp(p); e.setAttribute('x', x); e.setAttribute('y', y - 13); }
+    if (this.ring) { const [x, y] = sp(this.ring.p); this.ring.c.setAttribute('cx', x); this.ring.c.setAttribute('cy', y); this.ring.e.setAttribute('x', x); this.ring.e.setAttribute('y', y - 22); }
+  }
+}
