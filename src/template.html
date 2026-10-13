@@ -1,7 +1,7 @@
 <title>Match Architect · 火柴建築師</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Huninn&family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@600&family=Huninn&family=Noto+Sans+TC:wght@500;700;900&family=Nunito:wght@800&display=swap">
 <style>
 :root {
   /* layout: full-bleed low-poly diorama; matchbox-label HUD pinned top, striker-strip tool tray pinned bottom */
@@ -19,6 +19,12 @@
   --font-body: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
   --font-num: 'Bungee', 'Huninn', ui-rounded, sans-serif;
   color-scheme: light;
+}
+/* English: bold rounded Latin faces (only one weight of each is loaded, so every weight asked for renders bold);
+   Chinese characters in the English UI still fall back to Huninn / Noto Sans TC */
+:root.lang-en {
+  --font-display: 'Fredoka', 'Huninn', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-body: 'Nunito', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
 }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
@@ -248,6 +254,17 @@ body.placing #toast, body.scanned #toast { top: calc(env(safe-area-inset-top, 0p
 }
 @media (min-width: 621px) { #quake { top: calc(env(safe-area-inset-top, 0px) + 66px); } }
 #quake .qlabel { font: 400 15px/1 var(--font-display); color: var(--label-deep); white-space: nowrap; }
+/* quake-type moments (P wave, S wave, aftershock, fault pulse): a stamp that pops in under the quake bar */
+#qBanner {
+  position: absolute; z-index: 7; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 166px); transform: translateX(-50%) rotate(-2deg);
+  background: var(--label); color: var(--paper); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 5px 0 var(--ink);
+  padding: 8px 18px; font: 400 22px/1.1 var(--font-display); letter-spacing: .04em; white-space: nowrap; pointer-events: none;
+}
+#qBanner.calm { background: var(--paper); color: var(--ink); }
+#qBanner.pop { animation: qpop .45s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes qpop { from { transform: translateX(-50%) rotate(-2deg) scale(.4); opacity: 0; } to { transform: translateX(-50%) rotate(-2deg) scale(1); opacity: 1; } }
+@media (min-width: 621px) { #qBanner { top: calc(env(safe-area-inset-top, 0px) + 120px); } }
+@media (prefers-reduced-motion: reduce) { #qBanner.pop { animation: none; } }
 .strip {
   position: relative; flex: 1; height: 18px; border-radius: 4px; overflow: hidden;
   background-color: var(--striker);
@@ -593,6 +610,7 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
     <div class="strip"><div id="quakeFill"></div></div>
     <span id="quakeTime">10.0</span>
   </div>
+  <div id="qBanner" role="status" aria-live="assertive" hidden></div>
 
   <nav id="toolbar" hidden>
     <div class="tools">
@@ -670,6 +688,7 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
       <div class="slipfield"><span data-t="order.name">工程名稱</span><h2 id="introName">三角形</h2></div>
       <div class="slipfield"><span data-t="order.place">委託地點</span><p><b id="introTag">教學</b><small id="introReal"></small></p></div>
       <div class="slipfield"><span data-t="order.brief">工程說明</span><p id="introDesc"></p></div>
+      <div class="slipfield qtype"><span data-t="qt.label">地震類型</span><p><b id="introQType">橫向搖晃</b><small id="introQDesc"></small></p></div>
       <div class="slipbox"><h3 data-t="order.req">任務要求</h3><ul id="orderReq"></ul></div>
       <div class="slipbox reward" id="orderRewardBox"><h3 data-t="order.reward">達成獎勵</h3><ul id="orderReward"></ul></div>
       <p class="best" id="introBest" hidden></p>

@@ -1,5 +1,5 @@
 // 火柴建築師 Match Architect — game flow, input and HUD
-import { LEVELS, Design, Sim, L, QUAKE_TIME } from './sim.js';
+import { LEVELS, Design, Sim, L, QUAKE_TIME, QTYPES } from './sim.js';
 import { REFERENCE } from './designs.js';
 import { View, loadModels } from './render3d.js';
 import { Audio } from './audio.js';
@@ -62,6 +62,26 @@ function paintZoom() {
   $('zoomIn').disabled = view.zoom <= view.zoomMin + 1e-3;
   $('zoomOut').disabled = view.zoom >= view.zoomMax - 1e-3;
   $('zoomFit').classList.toggle('dim', !view.zoomed);
+}
+// dev / preview: ?quake=jolt (or long, after, ps, pulse, sway) gives every job that quake type
+const QUAKE_OVERRIDE = (() => { try { const q = new URLSearchParams(location.search).get('quake'); return QTYPES.includes(q) ? q : null; } catch (e) { return null; } })();
+function setQuakeType(type) { if (QTYPES.includes(type)) for (const lv of LEVELS) lv.quake = { ...lv.quake, type }; }
+if (QUAKE_OVERRIDE) setQuakeType(QUAKE_OVERRIDE);
+const qtName = lv => t('qt.' + (lv.quake.type || 'sway'));
+// quake-type moments: a stamp under the quake bar
+// (timed in quake time, so a slow phone or a recording sees it for as long as the quake does)
+function qBanner(msg, cls = '', ms = 1500) {
+  const b = $('qBanner'); b.textContent = msg; b.className = cls; b.hidden = false;
+  void b.offsetWidth; b.classList.add('pop');
+  qBanner.until = (G.sim ? G.sim.t : 0) + ms / 1000;
+}
+function hideBanner() { qBanner.until = 0; $('qBanner').hidden = true; }
+function qPhase(ev) {
+  if (ev.phase === 'pwave') qBanner(t('qb.pwave'), 'calm', 1800);
+  if (ev.phase === 'calm') qBanner(t('qb.calm'), 'calm', 1100);
+  if (ev.phase === 'aftershock') { qBanner(t('qb.aftershock')); view.kick(0.3); for (const s of ev.scars || []) view.fxYield(s.x, s.y); }
+  if (ev.phase === 'swave') { qBanner(t('qb.swave')); view.kick(0.35); }
+  if (ev.phase === 'pulse') { if (ev.big > 1) qBanner(t('qb.pulse')); view.kick(0.2 + 0.25 * ev.big); try { navigator.vibrate && navigator.vibrate(ev.big > 1 ? 90 : 40); } catch (e) {} }
 }
 function toast(msg, ms = 1700) {
   const t = $('toast'); t.textContent = msg; t.hidden = false;
@@ -203,7 +223,7 @@ function startLevel(i, restored) {
   const S = sh(lv.shindo);
   $('lvTitle').textContent = `${lv.id}　${lvt(lv, 'name')}`;
   $('shindoChip').textContent = t('shindo', { s: S });
-  $('qShindo').textContent = t('shindo', { s: S });
+  $('qShindo').textContent = t('shindo', { s: S }) + (lv.quake.type && lv.quake.type !== 'sway' ? t('qt.sep') + qtName(lv) : '');
   const no = String(lv.id).padStart(3, '0');
   $('orderNo').textContent = no; $('resNo').textContent = no;
   $('orderStamp').textContent = t('shindo', { s: S });
@@ -211,10 +231,12 @@ function startLevel(i, restored) {
   $('introTag').textContent = lvt(lv, 'place') || t('order.tutorial');
   $('introDesc').textContent = lvt(lv, 'desc');
   $('introReal').textContent = lv.real ? t('order.real', { r: lvt(lv, 'real') }) : '';
+  $('introQType').textContent = qtName(lv);
+  $('introQDesc').textContent = t('qt.' + (lv.quake.type || 'sway') + '.d');
   const li = (ul, items) => { const e = $(ul); e.innerHTML = ''; for (const h of items) { const x = document.createElement('li'); x.innerHTML = h; e.appendChild(x); } };
   li('orderReq', [
     lv.stars.length > 1 ? t('req.stars', { n: lv.stars.length }) : t('req.star'),
-    t('req.quake', { s: S }),
+    lv.quake.type && lv.quake.type !== 'sway' ? t('req.quakeType', { s: S, type: qtName(lv) }) : t('req.quake', { s: S }),
     t('req.quota', { budget: lv.budget, cost: MATCH_COST }),
   ]);
   li('orderReward', [
@@ -326,6 +348,7 @@ function startQuake() {
   setPlayButton();
   $('quake').hidden = false;
   audio.rumbleStart();
+  hideBanner();
 }
 function stopQuake() {
   audio.fireStop();
@@ -338,7 +361,7 @@ function stopQuake() {
   G.sim = null;
   view.exitSim(G.design);
   G.state = 'build';
-  $('quake').hidden = true;
+  $('quake').hidden = true; hideBanner();
   setPlayButton(); show(null); updateHUD(); paintTray();
 }
 function simTick(dt) {
@@ -363,20 +386,21 @@ function simTick(dt) {
     }
     if (ev.type === 'melt') { view.fxMelt(ev.x, ev.y); if (Math.random() < 0.5) audio.crackle(0.8); }
     if (ev.type === 'yield') { view.fxYield(ev.x, ev.y); audio.creak(0.7); }
+    if (ev.type === 'phase') qPhase(ev);
     if (ev.type === 'flare') {
       view.fxFlare(ev.x, ev.y);
       if (!(sim.flareT > performance.now() - 120)) { sim.flareT = performance.now(); audio.flare(); }
     }
     if (ev.type === 'lost') {
-      audio.rumbleStop(); audio.fireStart(); view.kick(0.35);
+      audio.rumbleStop(); audio.fireStart(); view.kick(0.35); hideBanner();
       $('quake').hidden = true;
       sim.resultAt = sim.t + 3.2; sim.resultWon = false;   // watch it come down first (game time, so slow phones see it too)
     }
     if (ev.type === 'won') { audio.rumbleStop(); view.fxConfetti(); audio.win(); sim.resultAt = sim.t + 1.1; sim.resultWon = true; }
   }
+  if (qBanner.until && sim.t >= qBanner.until) hideBanner();
   if (sim.resultAt !== undefined && sim.t >= sim.resultAt && G.state === 'sim') showResult(sim.resultWon, t('fail.' + (sim.reasonCode || 'joint')));
-  const env = running ? sim.quakeEnv(sim.t) : 0;
-  const q = LEVELS[G.idx].quake, strength = env * q.A / 0.12;
+  const q = LEVELS[G.idx].quake, strength = running ? sim.quakeLevel(sim.t) : 0, env = strength * 0.12 / q.A;
   audio.rumbleLevel(Math.min(1.4, strength));
   if (sim.fireT !== null) {
     const n = sim.burning();
@@ -402,7 +426,7 @@ function simTick(dt) {
 function showResult(won, reason) {
   if (G.state !== 'sim') return;
   G.state = 'result';
-  $('quake').hidden = true;
+  $('quake').hidden = true; hideBanner();
   const lv = LEVELS[G.idx], used = G.design.used();
   let stars = 0, record = false;
   const paid = G.paid || 0; G.paid = 0; G.spent = null;
@@ -1079,6 +1103,10 @@ function bindUI() {
 let last = performance.now();
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!G.manual) frame(dt, now);   // G.manual: frames are driven by hand (__mq.frame), for frame-exact recordings
+  requestAnimationFrame(loop);
+}
+function frame(dt, now) {
   let q = 0;
   if (G.state === 'sim' || G.state === 'result') { q = simTick(dt); if (G.sim) view.syncSim(G.sim, dt); }
   if (G.state === 'title') view.camGoal.yaw = 0.3 + Math.sin(now / 5000) * 0.35;
@@ -1088,7 +1116,6 @@ function loop(now) {
     if (coach.update(G.state, G.design, view, !!(G.drag && G.drag.start), G.state === 'build' && canStart().ok)) audio.cheer();
   }
   view.render(dt, q);
-  requestAnimationFrame(loop);
 }
 
 function fatal(msg) {
@@ -1110,7 +1137,7 @@ export async function boot(data = {}) {
     view.setSkin(shop.skin); view.setScene(shop.scene);
     bindUI();
     setCoins(G.coins);
-    window.__mq = { G, LEVELS, REFERENCE, lb, get view() { return view; }, get turntable() { return turntable; }, shop, loadRef(id) { G.design.clear(); REFERENCE[id](G.design); refresh(); },
+    window.__mq = { G, LEVELS, REFERENCE, lb, setQuakeType, frame(dt = 1 / 30) { frame(dt, performance.now()); }, get view() { return view; }, get turntable() { return turntable; }, shop, loadRef(id) { G.design.clear(); REFERENCE[id](G.design); refresh(); },
       setCoins, itemsChanged, setTool, runScan, slotTap, ads, checkin,
       reveal(id) { G.idx = LEVELS.findIndex(l => l.id === id); G.state = 'result'; showReveal(LEVELS[G.idx]); } };
     lb.onChange(() => {

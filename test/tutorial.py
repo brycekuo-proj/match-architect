@@ -32,7 +32,9 @@ with sync_playwright() as p:
     check(page.is_visible('#coachTip') and page.is_visible('#coach'), 'coach shows on job 1')
     print('step', step(page), '|', tip(page)); time.sleep(0.5); sh('01_step1a'); time.sleep(0.7); sh('01_step1b')
     # wrong match first: from the left dot straight up
-    drag(page, cdp, (0, 0), (0, 1)); time.sleep(0.3)
+    drag(page, cdp, (0, 0), (0, 1))
+    try: page.wait_for_function("document.getElementById('btnUndo').classList.contains('coach-pulse')", timeout=4000)   # the coach updates on the next frames
+    except Exception: pass
     check(page.evaluate("document.getElementById('btnUndo').classList.contains('coach-pulse')"), 'off-plan match -> Undo pulses'); print('  tip:', tip(page)); sh('02_undo')
     page.locator('#btnUndo').tap(); time.sleep(0.4)
     check(page.evaluate('__mq.G.design.used()') == 0, 'undo removes it')

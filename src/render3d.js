@@ -806,12 +806,12 @@ export class View {
     }
     const d = Math.max(this.depth, 0.001);
     for (const { m, st, s } of R.struts) {
-      const pa = st.A.body.getWorldPoint(st.A.local), pb = st.B.body.getWorldPoint(st.B.local);
-      this._placeStrut(m, pa.x, pa.y, pb.x, pb.y, s * d);
+      const pa = st.A.body.getWorldPoint(st.A.local), pb = st.B.body.getWorldPoint(st.B.local), ln = this._lean || (x => x);
+      this._placeStrut(m, ln(pa.x, pa.y), pa.y, ln(pb.x, pb.y), pb.y, s * d);
     }
     if (R.damper && sim.damper) {
-      const D = sim.damper, h = D.host.getWorldPoint(D.local), sw = Math.max(-0.5, Math.min(0.5, D.swing * 0.6));
-      this._placeDamper(R.damper, h.x, h.y, h.x + sw, h.y - PARAMS.damperDrop + Math.abs(sw) * 0.15, 0);
+      const D = sim.damper, h = D.host.getWorldPoint(D.local), sw = Math.max(-0.5, Math.min(0.5, D.swing * 0.6)), hx = (this._lean || (x => x))(h.x, h.y);
+      this._placeDamper(R.damper, hx, h.y, hx + sw, h.y - PARAMS.damperDrop + Math.abs(sw) * 0.15, 0);
     }
   }
   fxYield(x, y) {   // 鋼骨 bending: a short cold flash instead of a snap
@@ -860,6 +860,8 @@ export class View {
   syncSim(sim, dt = 1 / 60) {
     const go = sim.ground.getPosition();
     this.terrainG.position.set(go.x, go.y, 0);
+    // long-period / pulse quakes: the building's own sway is drawn as a lean that grows with height
+    const lean = this._lean = sim.flex ? (x, y) => x + sim.flexLean(y - go.y) : x => x;
     const items = [], chars = [], fronts = [], now = this.time;
     for (const [id, b] of sim.bodies) {
       const p = b.getPosition(), a = b.getAngle();
@@ -896,20 +898,20 @@ export class View {
         const k = Math.min(1, sim.stress.get(id) || 0);
         color = sim.wraps.has(id) ? COL.carbon.clone().lerp(COL.strain, k * 0.8) : tmpC.setRGB(1, 1 - 0.6 * k, 1 - 0.8 * k).clone();
       }
-      items.push({ id, x1: ax, y1: ay, x2: bx, y2: by, color });
+      items.push({ id, x1: lean(ax, ay), y1: ay, x2: lean(bx, by), y2: by, color });
     }
     if (sim.fireT !== null && items.length) {
       let x0 = Infinity, x1 = -Infinity;
       for (const it of items) { x0 = Math.min(x0, it.x1, it.x2); x1 = Math.max(x1, it.x1, it.x2); }
       this.follow(x0, x1, dt);
     }
-    const nodes = this.nodeRefs.map(r => r.body.getWorldPoint(r.local));
+    const nodes = this.nodeRefs.map(r => { const p = r.body.getWorldPoint(r.local); return { x: lean(p.x, p.y), y: p.y }; });
     const tieColors = this.nodeRefs.map(r => { const B = sim.burn.get(r.sid); return B ? (B.lo <= 0 && B.hi >= 1 ? COL.char : COL.hot) : null; });
     this._writeInstances(items, nodes, tieColors);
     this._writeFire(chars, fronts, dt);
     sim.stars.forEach((st, i) => {
       const m = this.starMeshes[i]; if (!m) return;
-      const p = st.body.getWorldPoint(st.local); m.position.set(p.x, p.y, 0);
+      const p = st.body.getWorldPoint(st.local); m.position.set(lean(p.x, p.y), p.y, 0);
     });
     this._syncItems(sim);
   }

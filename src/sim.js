@@ -41,6 +41,85 @@ export const SHINDO = {
   '6弱': { A: 0.15, f: 1.5 }, '6強': { A: 0.17, f: 1.55 }, '7': { A: 0.2, f: 1.6 },
 };
 
+// 地震類型: how the ground moves. Every type is scaled from the level's 震度 (its A and f, peak ground acceleration
+// PGA ≈ 1.4·A·(2πf)² for the plain sway), so a stronger 震度 is stronger in every type.
+//   sway  橫向搖晃  the plain side-to-side shake (all the original jobs)
+//   jolt  直下型    bursts of hard up-and-down jolts with a weaker sway: loads beams, roofs and anything sticking out
+//   long  長週期    a slow, wide sway: low acceleration, but tall buildings resonate and sway harder every cycle
+//   after 餘震      a main shock, a short calm, then an aftershock; joints badly strained in the main shock are weaker
+//   ps    P波→S波   a light, fast up-and-down rattle first (the P wave), then the strong sway arrives all at once
+//   pulse 脈衝型    a near-fault quake: under a light sway, one huge shove of the ground (and a smaller one back)
+export const QTYPES = ['sway', 'jolt', 'long', 'after', 'ps', 'pulse'];
+export const QT = {
+  jolt: { hx: 0.55, vf: 2.6, vg: 1.2, vMax: 26, bursts: [[0.3, 2.2], [3.4, 5.3], [6.6, 8.8]] },
+  long: { f: 0.5, pga: 0.32, ramp: 3, flex: 1.6 },
+  after: { mainEnd: 5.2, start: 6.5, gain: 0.85, fr: 1.15, fatigue: 0.4 },
+  ps: { sAt: 2.5, pf: 2.2, pg: 0.45, sg: 1.15 },
+  pulse: { bg: 0.4, pulses: [[2.4, 1.0, 1.35], [5.9, 1.1, -0.75]], flex: 1.0 },
+};
+// the building's own sway (used by the long-period and pulse quakes): one mode, natural frequency from its height
+export const FLEX = { k: 7.5, fMin: 0.35, fMax: 6, zeta: 0.05, damper: 0.14 };
+
+const sm = u => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
+const between = (t, a, b, up = 0.25, down = 0.4) => sm((t - a) / up) * sm((b - t) / down);
+// the plain sway: main swing plus a little irregular wobble (peak acceleration ≈ 1.4·A·ω²) and a slight vertical bob
+const swayX = (A, w, t) => A * (Math.sin(w * t) + 0.25 * Math.sin(w * 1.62 * t + 1.3));
+const swayY = (A, w, t) => A * 0.1 * Math.sin(w * 1.31 * t + 0.4);
+const plainEnv = t => sm(t / 0.8) * sm((QUAKE_TIME - t) / 0.8);
+// ground displacement [x, y] (m) at time t for a quake type
+export function groundMotion(type, q, t) {
+  const A = q.A, w = 2 * Math.PI * q.f, T = QT[type];
+  switch (type) {
+    case 'jolt': {
+      // vertical: bursts at vf × the sway frequency, peak acceleration vg × the sway's PGA
+      // (capped at vMax m/s², about 2.6 g, so the strongest 震度 don't simply shake heavy towers apart)
+      const vw = w * T.vf, vA = Math.min(T.vg * 1.4 * A * w * w, T.vMax) / (vw * vw);
+      let ve = 0; for (const [a, b] of T.bursts) ve = Math.max(ve, between(t, a, b, 0.3, 0.5));
+      const e = plainEnv(t);
+      return [T.hx * e * swayX(A, w * 1.25, t), vA * ve * (Math.sin(vw * t) + 0.3 * Math.sin(vw * 2.1 * t + 0.7))];
+    }
+    case 'long': {
+      const wl = 2 * Math.PI * T.f, Al = T.pga * 1.4 * A * w * w / (wl * wl);
+      const e = sm(t / T.ramp) * sm((QUAKE_TIME - t) / 1.2);
+      return [Al * e * (Math.sin(wl * t) + 0.15 * Math.sin(wl * 1.7 * t + 0.9)), 0];
+    }
+    case 'after': {
+      const e1 = sm(t / 0.8) * sm((T.mainEnd - t) / 0.6);
+      const e2 = between(t, T.start, QUAKE_TIME, 0.2, 0.8) * T.gain, t2 = t - T.start;
+      return [e1 * swayX(A, w, t) + e2 * swayX(A, w * T.fr, t2), e1 * swayY(A, w, t) + e2 * swayY(A, w * T.fr, t2)];
+    }
+    case 'ps': {
+      // P wave: a light, fast vertical rattle; S wave: the full sway (a bit stronger), arriving almost at once
+      const pw = w * T.pf, pA = T.pg * 1.4 * A / (T.pf * T.pf), eP = between(t, 0, T.sAt + 0.4, 0.15, 0.6), eS = between(t, T.sAt, QUAKE_TIME, 0.3, 0.8);
+      return [0.12 * eP * swayX(A, w * 1.8, t) + T.sg * eS * swayX(A, w, t - T.sAt), pA * eP * Math.sin(pw * t) + eS * swayY(A, w, t)];
+    }
+    case 'pulse': {
+      const e = plainEnv(t);
+      let x = T.bg * e * swayX(A, w, t);
+      for (const [t0, Tp, g] of T.pulses) {
+        // one back-and-forth shove of the ground: displacement D·(1 − cos)/2, peak acceleration g × the sway's PGA
+        if (t <= t0 || t >= t0 + Tp) continue;
+        const wp = 2 * Math.PI / Tp, D = g * 1.4 * A * w * w / (0.5 * wp * wp);
+        x += D * 0.5 * (1 - Math.cos(wp * (t - t0)));
+      }
+      return [x, T.bg * e * swayY(A, w, t)];
+    }
+    default: { const e = plainEnv(t); return [e * swayX(A, w, t), e * swayY(A, w, t)]; }
+  }
+}
+// rough "how hard is it shaking" for the HUD, rumble and camera (the plain sway at full strength = 1)
+export function quakeGain(type, t) {
+  const T = QT[type];
+  switch (type) {
+    case 'jolt': { let ve = 0; for (const [a, b] of T.bursts) ve = Math.max(ve, between(t, a, b, 0.3, 0.5)); return Math.max(T.hx * plainEnv(t), ve * 1.1); }
+    case 'long': return 0.75 * sm(t / T.ramp) * sm((QUAKE_TIME - t) / 1.2);
+    case 'after': return Math.max(sm(t / 0.8) * sm((T.mainEnd - t) / 0.6), between(t, T.start, QUAKE_TIME, 0.2, 0.8) * T.gain);
+    case 'ps': return Math.max(0.3 * between(t, 0, T.sAt + 0.4, 0.15, 0.6), T.sg * between(t, T.sAt, QUAKE_TIME, 0.3, 0.8));
+    case 'pulse': { let p = 0; for (const [t0, Tp, g] of T.pulses) if (t > t0 && t < t0 + Tp) p = Math.max(p, Math.abs(g) * Math.sin(Math.PI * (t - t0) / Tp)); return Math.max(T.bg * plainEnv(t), p); }
+    default: return plainEnv(t);
+  }
+}
+
 // ---------------------------------------------------------------- levels (coordinates in match lengths)
 const FLAT = [[-40, 0], [50, 0], [50, -2], [-40, -2]];
 const T = Math.sqrt(3) / 2;
@@ -122,7 +201,7 @@ export const LEVELS = BASE.map(o => {
   const top = Math.max(...o.stars.map(s => s[1]));
   const lv = {
     terrain: [FLAT], ...o, budget: o.par * 2,   // match quota = 2× the 3-star target
-    quake: SHINDO[o.shindo],
+    quake: { ...SHINDO[o.shindo], type: o.qtype || 'sway' },
     view: [Math.min(...xs) - 0.55, Math.max(...xs) + 0.55, -0.3, top + 0.4],
   };
   if (!o.tag) lv.tag = '名建築';
@@ -431,6 +510,18 @@ export class Sim {
       }
       this.damper = { nodeId: n.id, x: n.x, y: n.y, host: H.body, local: H.local, wts, swing: 0, vel: 0, gvPrev: 0 };
     }
+    // quake type, and for the long-period / pulse quakes the building's own sway: a matchstick truss is far stiffer
+    // than a real tower, so its first mode is modelled (like the damper) as one oscillator, natural frequency from the
+    // height (taller = slower). Its swing pushes on every match in proportion to how high up it is.
+    this.qt = (level.quake && level.quake.type) || 'sway';
+    const share = QT[this.qt] && QT[this.qt].flex;
+    let top = 0; for (const s of design.sticks) { const [, y1, , y2] = design.ends(s); top = Math.max(top, y1, y2); }
+    this.height = top;
+    if (share && top > 0.5) {
+      const fn = Math.max(FLEX.fMin, Math.min(FLEX.fMax, FLEX.k / top));
+      this.flex = { share, H: top, fn, w: 2 * Math.PI * fn, u: 0, v: 0, acc: 0, vPrev: 0, peak: 0 };
+    }
+    this.phase = 'main';
   }
   // the body a joint (node) rides on, and where on it
   holder(nodeId) {
@@ -457,19 +548,60 @@ export class Sim {
     D.vel += (-ag * 0.9 - D.swing * 30 - D.vel * 3) * h; D.swing += D.vel * h;
   }
 
-  quakeEnv(t) {
-    const sm = u => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
-    return sm(t / 0.8) * sm((QUAKE_TIME - t) / 0.8);
+  // the plain envelope (0.8 s fade in and out); kept for the sway and for callers that only want "is it shaking"
+  quakeEnv(t) { return sm(t / 0.8) * sm((QUAKE_TIME - t) / 0.8); }
+  // how hard the ground is shaking right now (the sway at full strength = A / 0.12); drives the rumble, dust and camera
+  quakeLevel(t) {
+    const q = this.level.quake, k = q.A / 0.12, fade = this.fireT !== null ? Math.max(0, 1 - (t - this.fireT) / 3) : 1;
+    return k * fade * quakeGain(this.qt, t);
   }
   _quakeTarget(t) {
     const q = this.level.quake;
-    let env = this.quakeEnv(t);
-    if (this.fireT !== null) env *= Math.max(0, 1 - (t - this.fireT) / 3);   // after a failure the shaking dies down; the fire takes over
-    const w = 2 * Math.PI * q.f;
-    // main sway plus a little irregular wobble; peak acceleration ≈ 1.4·A·ω²
-    const x = q.A * env * (Math.sin(w * t) + 0.25 * Math.sin(w * 1.62 * t + 1.3));
-    const y = q.A * 0.1 * env * Math.sin(w * 1.31 * t + 0.4);
+    let [x, y] = groundMotion(this.qt, q, t);
+    if (this.fireT !== null) { const f = Math.max(0, 1 - (t - this.fireT) / 3); x *= f; y *= f; }   // after a failure the shaking dies down; the fire takes over
     return [x, y];
+  }
+  // the building's own sway (long-period / pulse quakes): driven by how the base moves, damped (more with a 阻尼球)
+  _flexForces(h) {
+    const F = this.flex, vb = this.base.getLinearVelocity().x, ab = (vb - F.vPrev) / h; F.vPrev = vb;
+    if (this.fireT !== null) return;
+    const z = FLEX.zeta + (this.damper ? FLEX.damper : 0);
+    const acc = -ab - 2 * z * F.w * F.v - F.w * F.w * F.u;
+    F.v += acc * h; F.u += F.v * h; F.acc = acc; F.peak = Math.max(F.peak, Math.abs(F.u));
+    const y0 = this.base.getPosition().y;
+    for (const b of this.bodies.values()) {
+      const phi = Math.max(0, Math.min(1, (b.getPosition().y - y0) / F.H));
+      if (phi > 0) b.applyForceToCenter(new Vec2(-F.share * b.getMass() * phi * acc, 0), true);
+    }
+  }
+  // how far the drawn building leans at height y because of its own sway (draw only; capped)
+  flexLean(y) {
+    const F = this.flex; if (!F || this.fireT !== null) return 0;
+    const phi = Math.max(0, Math.min(1, y / F.H));
+    return Math.max(-0.6, Math.min(0.6, F.u * F.share * 0.35)) * phi;
+  }
+  _phases() {
+    const t = this.t, T = QT[this.qt];
+    if (this.qt === 'after') {
+      if (this.phase === 'main' && t >= T.mainEnd + 0.3) { this.phase = 'calm'; this.events.push({ type: 'phase', phase: 'calm' }); }
+      if (this.phase === 'calm' && t >= T.start) {
+        // the aftershock: joints that came close to snapping in the main shock are weaker now
+        this.phase = 'aftershock'; const scars = [];
+        for (const J of this.joints) {
+          if (J.broken) continue;
+          const scar = Math.max(0, Math.min(1, (J.peak - 0.35) / 0.65));
+          J.weak = 1 - T.fatigue * scar;
+          if (scar > 0.25) scars.push({ x: J.x, y: J.y });
+        }
+        this.events.push({ type: 'phase', phase: 'aftershock', scars });
+      }
+    }
+    if (this.qt === 'ps' && this.phase === 'main' && t >= 0.3 && !this.pAnnounced) { this.pAnnounced = true; this.events.push({ type: 'phase', phase: 'pwave' }); }
+    if (this.qt === 'ps' && this.phase === 'main' && t >= T.sAt) { this.phase = 'swave'; this.events.push({ type: 'phase', phase: 'swave' }); }
+    if (this.qt === 'pulse') {
+      const i = this.pulseN || 0, p = T.pulses[i];
+      if (p && t >= p[0]) { this.pulseN = i + 1; this.events.push({ type: 'phase', phase: 'pulse', big: Math.abs(p[2]) }); }
+    }
   }
 
   step(dt) {
@@ -480,10 +612,12 @@ export class Sim {
       this.ground.setLinearVelocity(new Vec2((tx - gp.x) / h, (ty - gp.y) / h));
       if (this.iso) this._itemForces();
       if (this.damper) this._damperForces(h);
+      if (this.flex) this._flexForces(h);
       this.world.step(h, P.velIters, P.posIters);
       this.t += h;
       this._checkJoints(h);
     }
+    if (this.state === 'running') this._phases();
     if (this.fireT !== null) this._fire(dt);
     this._checkGoals();
   }
@@ -535,7 +669,7 @@ export class Sim {
       const F = J.j.getReactionForce(1 / h).length();
       J.f += (F - J.f) * a;
       const hot = this.fireT !== null && J.sticks.some(sid => this.burn.has(sid));
-      const cap = P.breakForce * (J.cfrp ? P.cfrpStrong : 1);   // what this joint can hold
+      const cap = P.breakForce * (J.cfrp ? P.cfrpStrong : 1) * (J.weak || 1);   // what this joint can hold (less after an aftershock scar)
       const s = J.f / cap;
       J.peak = Math.max(J.peak, s);
       let limit = cap * fade * (hot ? 0.5 : 1);

@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/levels.test.mjs && node test/collapse.test.mjs && node test/items.test.mjs && node test/checkin.test.mjs",
+    "test": "node test/levels.test.mjs && node test/collapse.test.mjs && node test/items.test.mjs && node test/checkin.test.mjs && node test/quaketypes.test.mjs",
     "test:full": "node --import ./test/use-private.mjs test/levels.test.mjs && node --import ./test/use-private.mjs test/items.test.mjs"
   },
   "dependencies": {
