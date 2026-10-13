@@ -37,11 +37,9 @@ export class Ads {
   save() { this.store.set(KEY, this.s); }
   get enabled() { return this.mode !== 'off'; }
   // daily caps
-  _day() { if (this.s.day !== today()) { this.s.day = today(); this.s.used = {}; this.s.daily = false; } }
+  _day() { if (this.s.day !== today()) { this.s.day = today(); this.s.used = {}; } }
   left(kind) { this._day(); return Math.max(0, (DAILY_LIMIT[kind] || 99) - (this.s.used[kind] || 0)); }
   _use(kind) { this._day(); this.s.used[kind] = (this.s.used[kind] || 0) + 1; this.save(); }
-  dailyClaimed() { this._day(); return !!this.s.daily; }
-  claimDaily() { this._day(); this.s.daily = true; this.save(); }
 
   // a rewarded ad: resolves true when the player watched it to the end (and earns the reward)
   async rewarded(kind) {

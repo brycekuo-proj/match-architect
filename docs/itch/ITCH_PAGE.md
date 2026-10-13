@@ -52,7 +52,7 @@ Free, plays in your browser on phone and desktop. English and 繁體中文.
 - Every match costs 1 coin, paid when the quake starts.
 - Pass, and every unused match in your quota pays back 2 coins.
 - Finish at or under the target count for ★★★.
-- Open the daily gift on the title screen for 30 free coins a day.
+- Check in every day on the title screen: 10 coins a day, a free item every 5th day and a big one on day 30. Miss a day and you can pay coins to make it up, or start the streak again.
 - Spend coins in the shop (from the title screen) on anti-quake items and new looks. Runs that use anti-quake items still earn stars and coins but don't go on the leaderboard.
 
 ## Controls

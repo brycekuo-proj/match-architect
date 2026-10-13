@@ -151,6 +151,33 @@ body.coaching #toast { top: calc(env(safe-area-inset-top, 0px) + 222px); }
 #btnDaily { position: relative; }
 #btnDaily .dot { position: absolute; top: -4px; right: -4px; width: 13px; height: 13px; border-radius: 50%; background: var(--label); border: 2px solid var(--paper); }
 #btnDaily.done .dot { display: none; }
+/* 每日簽到 card: a 30-day stamp sheet */
+.cicard { box-sizing: border-box; max-width: 440px; width: 100%; max-height: calc(100% - 8px); overflow-y: auto; }
+.cigrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.ci-cell { position: relative; aspect-ratio: 1; box-sizing: border-box; border: 2px solid var(--ink); border-radius: 10px; background: #fff;
+  display: grid; place-items: center; align-content: center; gap: 1px; padding: 10px 2px 2px; }
+.ci-cell b { position: absolute; top: 2px; left: 5px; font: 400 10px/1 var(--font-num); color: #6d5a49; }
+.ci-cell .coin { width: 15px; height: 15px; }
+.ci-cell svg { width: 26px; height: 26px; }
+.ci-cell em { font: 400 10px/1 var(--font-num); font-style: normal; color: var(--label-deep); }
+.ci-cell.item { background: #fff4cf; }
+.ci-cell.big { background: linear-gradient(160deg, #fff2a8, #f7c548); box-shadow: inset 0 0 0 2px #fffbe0; }
+.ci-cell.big svg { width: 30px; height: 30px; }
+.ci-cell.today { box-shadow: 0 0 0 3px var(--teal); animation: cipulse 1.2s ease-in-out infinite; }
+@keyframes cipulse { 50% { box-shadow: 0 0 0 5px rgba(31, 140, 132, .45); } }
+.ci-cell.done { background: #efe5d4; }
+.ci-cell.done > svg, .ci-cell.done > .coin, .ci-cell.done > em { opacity: .3; }
+.ci-cell .stamp { display: none; position: absolute; inset: 16%; border: 2.5px solid var(--label); border-radius: 50%; color: var(--label);
+  font: 400 15px/1 var(--font-display); font-style: normal; place-items: center; transform: rotate(-14deg); background: rgba(255, 247, 232, .55); }
+.ci-cell.done .stamp { display: grid; }
+.ci-cell.pop .stamp { animation: stampin .35s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes stampin { from { transform: rotate(-14deg) scale(2.2); opacity: 0; } }
+.ci-cell.missed { border-style: dashed; background: #ffe9e4; }
+.ci-cell.made .stamp { border-color: var(--teal); color: var(--teal); }
+.ciwarn { margin: 0; background: #ffe1db; border: 2px dashed var(--label); border-radius: 12px; padding: 8px 10px; text-align: center; font: 400 14px/1.45 var(--font-display); color: var(--label-deep); }
+#ciBtns .btn.short { opacity: .6; }
+.cinext { text-align: center; font: 400 14px/1.45 var(--font-display); color: var(--teal); margin: 0; }
+.cinext:empty { display: none; }
 .sitem.adcard { background: #eafaf7; }
 .sitem.adcard .sprev.item { background: #c4f1e7; }
 .sprev .plus { font: 400 18px/1 var(--font-num); color: var(--teal); }
@@ -617,7 +644,7 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
       <div class="btnrow">
         <button class="btn ghost small" id="btnShop" data-t="title.shop">商店</button>
         <button class="btn ghost small" id="btnCollect" data-t="title.collect">展示櫃</button>
-        <button class="btn ghost small" id="btnDaily" hidden><span data-t="daily.btn">每日禮物</span><i class="dot" id="dailyDot"></i></button>
+        <button class="btn ghost small" id="btnDaily"><span data-t="ci.btn">每日簽到</span><i class="dot" id="dailyDot"></i></button>
       </div>
       <button class="btn teal" id="btnBoard" data-t="title.board" hidden>排行榜：誰用的火柴最少</button>
       <p class="wallet"><i class="coin" aria-hidden="true"></i><span data-t="title.coins">金幣</span> <b id="coinTitle">30</b></p>
@@ -674,6 +701,16 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
     </div>
   </section>
 
+  <div class="askwrap" id="ciWrap" hidden>
+    <div class="card cicard" role="dialog" aria-labelledby="ciTitle">
+      <div class="shophead"><h2 id="ciTitle" data-t="ci.title">每日簽到</h2><span class="colcount" id="ciRound"></span></div>
+      <p class="shopnote" id="ciSub"></p>
+      <p class="ciwarn" id="ciWarn" role="alert" hidden></p>
+      <div class="cigrid" id="ciGrid"></div>
+      <p class="cinext" id="ciNext"></p>
+      <div class="btnrow" id="ciBtns"></div>
+    </div>
+  </div>
   <div class="askwrap" id="ask" hidden><div class="card askcard"><p id="askText"></p><div class="btnrow" id="askBtns"></div></div></div>
 
   <section class="ov" id="ovReveal" hidden>

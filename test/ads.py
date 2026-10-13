@@ -1,4 +1,4 @@
-"""Ads check (mock mode, ?ads=mock): daily gift, rewarded ads in the shop and on the result slip, interstitial pacing
+"""Ads check (mock mode, ?ads=mock) and the daily check-in: rewarded ads in the shop and on the result slip, interstitial pacing
 on "Next Job", the remove-ads purchase; and the plain web build shows none of it."""
 import sys, time
 from playwright.sync_api import sync_playwright
@@ -24,36 +24,53 @@ with sync_playwright() as p:
 
     # plain web build: no ads anywhere
     page.goto('file:///home/claude/mq/dist/itch/index.html'); page.wait_for_selector('#ovTitle:not([hidden])', timeout=30000); time.sleep(0.8)
-    check(page.is_visible('#btnDaily') and ev('__mq.ads.mode') == 'off', 'web build: ads off, daily gift on the title')
-    c0 = coins(); page.locator('#btnDaily').tap(); time.sleep(0.4)
-    check(coins() == c0 + 30 and page.is_hidden('#ask') and page.locator('.mockad').count() == 0, f'web daily gift: +30 straight away, no ad ({c0} -> {coins()})')
-    page.locator('#btnDaily').tap(); time.sleep(0.3)
-    check(coins() == c0 + 30 and 'done' in page.get_attribute('#btnDaily', 'class'), 'web daily gift only once a day')
-    sh('00_web_daily')
-    ev("(() => { const s = JSON.parse(localStorage.getItem('mq2_ads') || '{}'); s.daily = false; s.day = ''; localStorage.setItem('mq2_ads', JSON.stringify(s)); })()")
+    check(page.is_visible('#btnDaily') and ev('__mq.ads.mode') == 'off', 'web build: ads off, daily check-in on the title')
+    c0 = coins(); page.locator('#btnDaily').tap(); page.wait_for_selector('#ciWrap:not([hidden])'); time.sleep(0.4); sh('00_web_checkin')
+    check(page.locator('#ciGrid .ci-cell').count() == 30 and page.locator('#ciBtns .adbtn').count() == 0, 'web: 30-day sheet, no ad button')
+    page.locator('#ciBtns .primary').tap(); time.sleep(0.6)
+    check(coins() == c0 + 10 and page.locator('#ciGrid .ci-cell.done').count() == 1, f'web check-in: +10 and day 1 stamped ({c0} -> {coins()})')
+    check(page.locator('#ciBtns .primary').count() == 0, 'web check-in only once a day')
+    sh('00b_web_checked'); page.locator('#ciBtns .ghost').tap(); time.sleep(0.3)
+    check('done' in page.get_attribute('#btnDaily', 'class'), 'title button marked done for today')
+    # day 5: a small item
+    ev("localStorage.setItem('mq2_checkin', JSON.stringify({ count: 4, round: 0, last: (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })() }))"); page.reload(); page.wait_for_selector('#ovTitle:not([hidden])', timeout=30000); time.sleep(0.6)
+    page.locator('#btnDaily').tap(); page.wait_for_selector('#ciWrap:not([hidden])'); time.sleep(0.3)
+    print('next:', page.inner_text('#ciNext'))
+    h0 = ev("__mq.shop.count('hint')"); page.locator('#ciBtns .primary').tap()
+    page.wait_for_function("document.querySelectorAll('#ciGrid .ci-cell.done').length >= 5", timeout=5000); time.sleep(0.3)
+    check(ev("__mq.shop.count('hint')") == h0 + 1 and page.locator('#ciGrid .ci-cell.done').count() == 5, 'day 5 gives a hint ticket')
+    print('toast:', page.inner_text('#toast')); sh('00c_day5')
+    # day 30: the big prize
+    ev("localStorage.setItem('mq2_checkin', JSON.stringify({ count: 29, round: 0, last: (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })() }))"); page.reload(); page.wait_for_selector('#ovTitle:not([hidden])', timeout=30000); time.sleep(0.6)
+    page.locator('#btnDaily').tap(); page.wait_for_selector('#ciWrap:not([hidden])'); time.sleep(0.3)
+    d0 = ev("__mq.shop.count('damper')"); page.locator('#ciBtns .primary').tap(); time.sleep(0.6)
+    check(ev("__mq.shop.count('damper')") == d0 + 1, 'day 30 gives a mass damper'); print('next:', page.inner_text('#ciNext')); sh('00d_day30')
+    page.locator('#ciBtns .ghost').tap(); time.sleep(0.2)
+    ev("localStorage.removeItem('mq2_checkin')")
     page.locator('#btnShop').tap(); time.sleep(0.4)
     check(page.locator('#shopGrid .adcard').count() == 0, 'web build: no ad offers in the shop')
     page.locator('#btnShopBack').tap(); time.sleep(0.3)
 
     # mock mode
     page.goto('file:///home/claude/mq/dist/itch/index.html?ads=mock'); page.wait_for_selector('#ovTitle:not([hidden])', timeout=30000); time.sleep(0.8)
-    check(ev('__mq.ads.mode') == 'mock' and page.is_visible('#btnDaily'), 'mock mode: daily gift on the title')
+    check(ev('__mq.ads.mode') == 'mock' and page.is_visible('#btnDaily'), 'mock mode: daily check-in on the title')
     sh('01_title')
-    c0 = coins(); page.locator('#btnDaily').tap(); time.sleep(0.3); sh('02_daily_ask')
-    page.locator('#askBtns .adbtn').tap(); time.sleep(1.5); sh('03_mock_rewarded'); watch()
-    check(coins() == c0 + 60, f'daily gift with an ad: +60 ({c0} -> {coins()})')
-    page.locator('#btnDaily').tap(); time.sleep(0.3)
-    check(page.is_hidden('#ask') and coins() == c0 + 60, 'daily gift only once a day')
+    c0 = coins(); page.locator('#btnDaily').tap(); page.wait_for_selector('#ciWrap:not([hidden])'); time.sleep(0.3); sh('02_checkin_ad')
+    page.locator('#ciBtns .adbtn').tap(); time.sleep(1.5); sh('03_mock_rewarded'); watch()
+    check(coins() == c0 + 20, f'check-in with an ad: double coins +20 ({c0} -> {coins()})')
+    check(page.locator('#ciBtns .primary').count() == 0, 'check-in only once a day')
+    page.locator('#ciBtns .ghost').tap(); time.sleep(0.3)
     # shop: ad offers and remove-ads
     page.locator('#btnShop').tap(); time.sleep(0.5)
     check(page.locator('#shopGrid .adcard').count() == 2, 'shop: coins and hint for an ad'); sh('04_shop_ads')
     c0 = coins(); page.locator('#shopGrid .adcard').nth(0).locator('.sbuy').tap(); watch()
     check(coins() == c0 + 20, 'coin ad: +20')
+    h0 = ev("__mq.shop.count('hint')")
     page.locator('#shopGrid .adcard').nth(1).locator('.sbuy').tap()
-    page.wait_for_selector('.mockad'); time.sleep(1); page.locator('.mockad .mockad-x').tap(); time.sleep(0.4)
-    check(ev("__mq.shop.count('hint')") == 0, 'closing an ad early gives nothing')
+    page.wait_for_selector('.mockad'); time.sleep(1); ev("document.querySelector('.mockad .mockad-x').click()"); time.sleep(0.4)   # JS click: a slow tap could outlast the ad
+    check(ev("__mq.shop.count('hint')") == h0, 'closing an ad early gives nothing')
     page.locator('#shopGrid .adcard').nth(1).locator('.sbuy').tap(); watch()
-    check(ev("__mq.shop.count('hint')") == 1, 'hint ad: +1 ticket')
+    check(ev("__mq.shop.count('hint')") == h0 + 1, 'hint ad: +1 ticket')
     page.locator('#btnShopBack').tap(); time.sleep(0.3)
     # result: double the pay
     page.locator('#btnLevels').tap(); page.wait_for_selector('#ovLevels:not([hidden])'); page.locator('#levelGrid .lvcard').nth(0).tap()

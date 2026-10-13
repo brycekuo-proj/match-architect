@@ -10,6 +10,7 @@ import { Coach, HintLayer, ScanLayer } from './coach.js';
 import { Shop } from './shop.js';
 import { ICONS } from './icons.js';
 import { Ads, setAdText, REMOVE_ADS_PRICE } from './ads.js';
+import { CheckIn, ROUND, DAILY_COINS, MAKEUP_MAX } from './checkin.js';
 import { TEASERS, WEB_EDITION } from './levels_full.js';   // web builds get levels_web.js: jobs 11+ are locked teasers
 
 const $ = id => document.getElementById(id);
@@ -31,7 +32,8 @@ G.coins = store.get('mq2_coins', START_COINS);
 G.earned = Math.max(store.get('mq2_earned', 0), G.coins);   // lifetime coins earned (the coin leaderboard), spending doesn't lower it
 const earn = n => { G.earned += Math.max(0, n); store.set('mq2_earned', G.earned); };
 const shop = new Shop(store);
-const ads = new Ads(store); setAdText(t);   // off in web builds; ?ads=mock to try the flow; AdMob in the app
+const ads = new Ads(store); setAdText(t);
+const checkin = new CheckIn(store);   // off in web builds; ?ads=mock to try the flow; AdMob in the app
 function setCoins(v) {
   G.coins = Math.max(0, Math.round(v));
   store.set('mq2_coins', G.coins);
@@ -71,21 +73,78 @@ function titleScreen() {
   G.state = 'title';
   titleDemo();
   show('ovTitle');
-  paintDaily();
+  paintCheckinBtn();
 }
-// 每日禮物: 30 coins a day. Web builds (no ads) just hand it over; ad builds offer 60 for watching a rewarded ad.
-function paintDaily() {
-  const b = $('btnDaily');
-  b.hidden = false;
-  b.classList.toggle('done', ads.dailyClaimed());
+// 每日簽到: 10 coins a day, days in a row; every 5th day a small item, day 30 a big one (see checkin.js).
+// Missed days can be made up for coins, or the streak restarts. Ad builds can double the day's coins.
+const itemName = (id, n = 1) => (id === 'cfrp' ? t('it.cfrp.name') : t('item.' + id)) + (n > 1 ? ' ×' + n : '');
+function paintCheckinBtn() { $('btnDaily').classList.toggle('done', checkin.doneToday); }
+function openCheckin() { paintCheckin(); $('ciWrap').hidden = false; }
+function closeCheckin() { $('ciWrap').hidden = true; paintCheckinBtn(); }
+function paintCheckin(justDays = []) {
+  const fresh = checkin.count >= ROUND && !checkin.doneToday;   // a finished round: today starts the next one
+  const round = fresh ? checkin.round + 1 : checkin.round, have = fresh ? 0 : checkin.count, missed = checkin.missed;
+  const todayDay = checkin.doneToday || checkin.clockBack ? -1 : have + missed + 1;
+  const grid = $('ciGrid'); grid.innerHTML = '';
+  for (let d = 1; d <= ROUND; d++) {
+    const r = checkin.reward(d, round), cell = document.createElement('div');
+    const isMissed = d > have && d <= have + missed, made = !fresh && checkin.made.includes(d);
+    cell.className = 'ci-cell' + (r ? ' item' : '') + (r && r.big ? ' big' : '') + (d <= have ? ' done' : '') + (made ? ' made' : '')
+      + (isMissed ? ' missed' : '') + (d === todayDay ? ' today' : '') + (justDays.includes(d) ? ' pop' : '');
+    cell.innerHTML = `<b>${d}</b>${r ? ICONS[r.id] + (r.n > 1 ? `<em>×${r.n}</em>` : '') : `<i class="coin" aria-hidden="true"></i><em>+${DAILY_COINS}</em>`}<i class="stamp">${t(made ? 'ci.stampMade' : 'ci.stamp')}</i>`;
+    cell.title = r ? itemName(r.id, r.n) : `+${DAILY_COINS}`;
+    grid.appendChild(cell);
+  }
+  $('ciRound').textContent = t('ci.round', { n: round + 1 });
+  $('ciSub').textContent = t('ci.sub', { n: DAILY_COINS });
+  const warn = $('ciWarn'); warn.hidden = true;
+  const nx = checkin.nextMilestone();
+  let line = '';
+  if (checkin.clockBack) { warn.textContent = t('ci.clock'); warn.hidden = false; }
+  else if (missed) { warn.textContent = checkin.canMakeUp ? t('ci.missed', { n: missed }) : t('ci.tooLong', { n: missed, max: MAKEUP_MAX }); warn.hidden = false; }
+  else if (checkin.doneToday) line = checkin.count >= ROUND ? t('ci.cycle') : t('ci.done') + (nx ? '　' + t('ci.next', { n: nx.in, item: itemName(nx.id, nx.n) }) : '');
+  else if (nx) line = nx.in === 1 ? t('ci.nextToday', { item: itemName(nx.id, nx.n) }) : t('ci.next', { n: nx.in, item: itemName(nx.id, nx.n) });
+  $('ciNext').textContent = line;
+  const row = $('ciBtns'); row.innerHTML = '';
+  const mk = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = label; b.onclick = () => { audio.click(); fn(); }; row.appendChild(b); return b; };
+  if (!checkin.clockBack && !checkin.doneToday) {
+    if (missed) {
+      if (checkin.canMakeUp) { const b = mk(t('ci.makeup', { n: checkin.makeUpDays, cost: checkin.makeUpCost }), 'primary', doMakeUp); if (G.coins < checkin.makeUpCost) b.classList.add('short'); }
+      mk(t('ci.restart'), checkin.canMakeUp ? 'ghost' : 'primary', doRestart);
+    } else {
+      mk(t('ci.go'), 'primary', () => doCheckin(false));
+      if (ads.enabled) mk(t('ci.adDouble'), 'adbtn', () => doCheckin(true));
+    }
+  }
+  mk(t('ci.close'), 'ghost', closeCheckin);
 }
-function onDaily() {
-  if (ads.dailyClaimed()) { toast(t('daily.done')); return; }
-  const give = n => { if (ads.dailyClaimed()) return; ads.claimDaily(); setCoins(G.coins + n); audio.win(); toast(t('daily.got', { n })); paintDaily(); };
-  if (!ads.enabled) { give(30); return; }
-  ask(t('daily.ask'), [
-    { label: t('daily.ad'), cls: 'adbtn', fn: async () => { const ok = await ads.rewarded(); if (!ok) toast(t('ad.none')); give(ok ? 60 : 30); } },
-    { label: t('daily.take'), cls: 'ghost', fn: () => give(30) }]);
+// 補簽: pay for the missed days to keep the streak
+function doMakeUp() {
+  const cost = checkin.makeUpCost;
+  if (G.coins < cost) { audio.deny(); toast(t('shop.short', { n: cost - G.coins })); return; }
+  const r = checkin.makeUp(); if (!r) return;
+  setCoins(G.coins - cost);
+  for (const it of r.items) shop.give(it.id, it.n);
+  audio.place();
+  toast(t('ci.madeUp', { n: r.days.length, cost }) + (r.items.length ? t('ci.gotItem', { item: r.items.map(i => itemName(i.id, i.n)).join(LANG === 'en' ? ', ' : '、') }) : ''), 2800);
+  paintCheckin(r.days);
+}
+function doRestart() {
+  $('ciWrap').hidden = true;
+  ask(t('ci.restartAsk', { n: checkin.count }), [
+    { label: t('ci.restart'), cls: 'primary', fn: () => { checkin.restart(); openCheckin(); } },
+    { label: t('btn.cancel'), cls: 'ghost', fn: () => openCheckin() }]);
+}
+async function doCheckin(withAd) {
+  if (checkin.doneToday) return;
+  let mult = 1;
+  if (withAd) { if (!(await ads.rewarded())) { toast(t('ad.none')); return; } mult = 2; }
+  const r = checkin.checkIn(); if (!r) return;
+  setCoins(G.coins + r.coins * mult);
+  if (r.item) shop.give(r.item.id, r.item.n);
+  audio.win();
+  toast(t('ci.got', { day: r.day, coins: r.coins * mult }) + (r.item ? t('ci.gotItem', { item: itemName(r.item.id, r.item.n) }) : ''), 2800);
+  paintCheckin([r.day]); paintCheckinBtn();
 }
 function titleDemo() {
   const demo = LEVELS.find(l => l.id === 8);
@@ -967,7 +1026,8 @@ function bindUI() {
   on('btnLevels', () => { audio.click(); levelsScreen(); });
   on('btnShop', () => { audio.click(); shopScreen(); });
   on('btnCollect', () => { audio.click(); collectScreen(); });
-  on('btnDaily', () => { audio.click(); onDaily(); });
+  on('btnDaily', () => { audio.click(); openCheckin(); });
+  $('ciWrap').addEventListener('click', e => { if (e.target === $('ciWrap')) closeCheckin(); });
   on('btnShopBack', () => { audio.click(); closeShop(); });
   on('btnColBack', () => { audio.click(); titleScreen(); });
   on('btnPlaceDone', () => { audio.click(); setTool('match'); });
@@ -1051,7 +1111,7 @@ export async function boot(data = {}) {
     bindUI();
     setCoins(G.coins);
     window.__mq = { G, LEVELS, REFERENCE, lb, get view() { return view; }, get turntable() { return turntable; }, shop, loadRef(id) { G.design.clear(); REFERENCE[id](G.design); refresh(); },
-      setCoins, itemsChanged, setTool, runScan, slotTap, ads,
+      setCoins, itemsChanged, setTool, runScan, slotTap, ads, checkin,
       reveal(id) { G.idx = LEVELS.findIndex(l => l.id === id); G.state = 'result'; showReveal(LEVELS[G.idx]); } };
     lb.onChange(() => {
       $('btnBoard').hidden = !lb.available;
