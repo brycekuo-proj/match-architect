@@ -9,3 +9,4 @@ _obsolete/
 .git-commit-msg.txt
 dist/app/
 src/assets_web.js
+private/

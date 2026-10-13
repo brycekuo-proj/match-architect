@@ -1,10 +1,13 @@
 // 完整版 (full / App edition) content: jobs 11 and up, their reference builds and landmark models.
 // The web, itch.io and jam builds resolve this file to levels_web.js instead (see build.mjs), so none of this ships
 // there; the web edition only shows these jobs as locked cards.
+import { PRIVATE_KEYS, privateLevels, privateDesigns } from './levels_private.js';   // jobs 14+ (Mac only)
+
 export const WEB_EDITION = false;
-export const FULL_KEYS = ['skytree', 'burj', 'sagrada'];   // landmark models only the full edition carries
+export const FULL_KEYS = ['skytree', 'burj', 'sagrada', ...PRIVATE_KEYS];   // landmark models only the full edition carries
 export const TEASERS = [];
-export const fullLevels = ({ range, row }) => [
+export const fullLevels = h => [...jobs11to13(h), ...privateLevels(h)];
+const jobs11to13 = ({ range, row }) => [
   {
     id: 11, key: 'skytree', en: {"name": "Tokyo Skytree", "place": "Tokyo, Japan", "real": "634 m tall", "desc": "The world's tallest broadcasting tower: long and slim.", "hint": "Spread the bottom with many layers of triangles and narrow it as you go up."}, name: '東京晴空塔', place: '日本 · 東京', real: '高 634 公尺', shindo: '6強', par: 64,
     desc: '世界最高的電波塔，又細又長。',
@@ -27,7 +30,8 @@ export const fullLevels = ({ range, row }) => [
     spires: true,
   },
 ];
-export const fullDesigns = LatticeBuilder => ({
+export const fullDesigns = LatticeBuilder => ({ ...designs11to13(LatticeBuilder), ...privateDesigns(LatticeBuilder) });
+const designs11to13 = LatticeBuilder => ({
   11: d => { const b = new LatticeBuilder(d); b.pyramid(0, 7, 6); b.column([3, 6], [4, 6], 3.5, 9); },
   12: d => { const b = new LatticeBuilder(d); b.pyramid(0, 8, 7); b.column([3.5, 7], [4.5, 7], 4, 10); },
   13: d => {

@@ -60,6 +60,8 @@
 
 完整版的內容寫在 `src/levels_full.js`；建置網頁版時，`build.mjs` 會改用 `src/levels_web.js`，所以網頁版檔案裡完全沒有第 11 關以後的關卡、參考解和模型。`dist/app/index.html` 是完整版（給之後的 App 用），不放上網。
 
+第 14 關以後的完整版內容只放在作者自己的電腦（`private/` 資料夾，已列在 `.gitignore`），不放進這個公開的 repo；`src/levels_private.js` 只是空的替身。完整版建置和 `npm run test:full` 會自動改用 `private/levels_private.js`。
+
 ## 排行榜
 `dist/match-architect.html` 是 Claude 分享連結版，使用 Claude artifact 內建的共用資料庫，比每關誰用的火柴最少，以及金幣總榜。GitHub Pages 上的 `play.html` 沒有排行榜，其他功能相同。
 

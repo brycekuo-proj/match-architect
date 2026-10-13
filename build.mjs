@@ -8,7 +8,11 @@ const glb = n => fs.readFileSync(`assets/${n}.glb`).toString('base64');
 // Q-version landmark models from blender/make_landmarks.py (assets/landmarks/<level key>.glb), shown after a clear
 const lmDir = process.env.LM_DIR || 'assets/landmarks';
 const lms = fs.existsSync(lmDir) ? fs.readdirSync(lmDir).filter(f => f.endsWith('.glb')).sort() : [];
-const lmJs = lms.map(f => `  ${JSON.stringify(f.replace(/\.glb$/, ''))}: "${fs.readFileSync(`${lmDir}/${f}`).toString('base64')}",`).join('\n');
+// 完整版 content from job 14 on stays on this Mac only, in private/ (git-ignored): levels_private.js and landmarks/*.glb
+const PRIV = 'private', privLm = `${PRIV}/landmarks`, hasPrivate = fs.existsSync(`${PRIV}/levels_private.js`);
+const plms = fs.existsSync(privLm) ? fs.readdirSync(privLm).filter(f => f.endsWith('.glb')).sort() : [];
+const lmJs = [...lms.map(f => [lmDir, f]), ...plms.map(f => [privLm, f])]
+  .map(([d, f]) => `  ${JSON.stringify(f.replace(/\.glb$/, ''))}: "${fs.readFileSync(`${d}/${f}`).toString('base64')}",`).join('\n');
 fs.writeFileSync('src/assets.js', `export const MATCH_GLB = "${glb('match')}";\nexport const LANDMARKS = {\n${lmJs}\n};\n`);
 // the web edition (artifact, itch.io, GitHub Pages) carries jobs 1–10 only: no full-edition levels, designs or models
 const webJs = lms.filter(f => !FULL_KEYS.includes(f.replace(/\.glb$/, ''))).map(f => `  ${JSON.stringify(f.replace(/\.glb$/, ''))}: "${fs.readFileSync(`${lmDir}/${f}`).toString('base64')}",`).join('\n');
@@ -17,7 +21,7 @@ const webEdition = { name: 'web-edition', setup(b) {
   b.onResolve({ filter: /\/levels_full\.js$/ }, () => ({ path: path.resolve('src/levels_web.js') }));
   b.onResolve({ filter: /\/assets\.js$/ }, () => ({ path: path.resolve('src/assets_web.js') }));
 } };
-console.log('landmarks', lms.length, (lms.reduce((n, f) => n + fs.statSync(`${lmDir}/${f}`).size, 0) / 1024).toFixed(0) + ' KB');
+console.log('landmarks', lms.length, (lms.reduce((n, f) => n + fs.statSync(`${lmDir}/${f}`).size, 0) / 1024).toFixed(0) + ' KB', '| private:', hasPrivate ? 'yes' : 'none', plms.length ? `+${plms.length} models` : '');
 
 const tpl = fs.readFileSync('src/template.html', 'utf8');
 const esc = s => s.replace(/<\/script/gi, '<\\/script');
@@ -44,8 +48,11 @@ const [pre, post] = body.split('<div id="app">');
 fs.writeFileSync('dist/itch/index.html', `${head}${pre}</head>\n<body>\n<div id="app">${post}</body>\n</html>\n`);
 fs.copyFileSync('dist/itch/index.html', 'play.html');   // the game page on GitHub Pages (index.html is the homepage)
 
-// 3) full edition for the App (Capacitor): every job and model. Not published on the web.
-const c = await build({ entryPoints: ['src/entry.js'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020' });
+// 3) full edition for the App (Capacitor): every job and model, including private/. Not published on the web.
+const privateEdition = { name: 'private-edition', setup(b) {
+  if (hasPrivate) b.onResolve({ filter: /\/levels_private\.js$/ }, () => ({ path: path.resolve(`${PRIV}/levels_private.js`) }));
+} };
+const c = await build({ entryPoints: ['src/entry.js'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020', plugins: [privateEdition] });
 fs.mkdirSync('dist/app', { recursive: true });
 fs.writeFileSync('dist/app/index.html', `${head}${pre}</head>\n<body>\n<div id="app">${tpl.replace('<!--IMPORTMAP-->', '').replace('<!--APP-->', () => `<script>${esc(c.outputFiles[0].text)}</script>`).split('<div id="app">')[1]}</body>\n</html>\n`);
 for (const f of ['dist/match-architect.html', 'dist/itch/index.html', 'dist/app/index.html']) console.log(f, (fs.statSync(f).size / 1024).toFixed(0) + ' KB');
