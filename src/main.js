@@ -73,15 +73,16 @@ function titleScreen() {
   show('ovTitle');
   paintDaily();
 }
-// 每日禮物 (ad builds only): 30 coins a day, 60 with a rewarded ad
+// 每日禮物: 30 coins a day. Web builds (no ads) just hand it over; ad builds offer 60 for watching a rewarded ad.
 function paintDaily() {
   const b = $('btnDaily');
-  b.hidden = !ads.enabled;
+  b.hidden = false;
   b.classList.toggle('done', ads.dailyClaimed());
 }
 function onDaily() {
   if (ads.dailyClaimed()) { toast(t('daily.done')); return; }
   const give = n => { if (ads.dailyClaimed()) return; ads.claimDaily(); setCoins(G.coins + n); audio.win(); toast(t('daily.got', { n })); paintDaily(); };
+  if (!ads.enabled) { give(30); return; }
   ask(t('daily.ask'), [
     { label: t('daily.ad'), cls: 'adbtn', fn: async () => { const ok = await ads.rewarded(); if (!ok) toast(t('ad.none')); give(ok ? 60 : 30); } },
     { label: t('daily.take'), cls: 'ghost', fn: () => give(30) }]);

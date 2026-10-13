@@ -24,7 +24,13 @@ with sync_playwright() as p:
 
     # plain web build: no ads anywhere
     page.goto('file:///home/claude/mq/dist/itch/index.html'); page.wait_for_selector('#ovTitle:not([hidden])', timeout=30000); time.sleep(0.8)
-    check(page.is_hidden('#btnDaily') and ev('__mq.ads.mode') == 'off', 'web build: ads off, no daily gift')
+    check(page.is_visible('#btnDaily') and ev('__mq.ads.mode') == 'off', 'web build: ads off, daily gift on the title')
+    c0 = coins(); page.locator('#btnDaily').tap(); time.sleep(0.4)
+    check(coins() == c0 + 30 and page.is_hidden('#ask') and page.locator('.mockad').count() == 0, f'web daily gift: +30 straight away, no ad ({c0} -> {coins()})')
+    page.locator('#btnDaily').tap(); time.sleep(0.3)
+    check(coins() == c0 + 30 and 'done' in page.get_attribute('#btnDaily', 'class'), 'web daily gift only once a day')
+    sh('00_web_daily')
+    ev("(() => { const s = JSON.parse(localStorage.getItem('mq2_ads') || '{}'); s.daily = false; s.day = ''; localStorage.setItem('mq2_ads', JSON.stringify(s)); })()")
     page.locator('#btnShop').tap(); time.sleep(0.4)
     check(page.locator('#shopGrid .adcard').count() == 0, 'web build: no ad offers in the shop')
     page.locator('#btnShopBack').tap(); time.sleep(0.3)
