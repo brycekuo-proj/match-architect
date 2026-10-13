@@ -64,6 +64,7 @@
 ## 技術
 - 物理：[Planck.js](https://github.com/piqnt/planck.js)（2D，火柴是剛體、膠點是有摩擦的鉸接，受力超過門檻就斷）
 - 畫面：[Three.js](https://threejs.org/) 即時 3D；地震開始時建築展開成有前後兩面的立體塔
+- 卡通描邊：深度圖找出輪廓，在物體外側畫粗墨線（`src/outline.js`），遊戲畫面和完工模型都有
 - 火柴模型、13 個 Q 版建築模型與封面：Blender（`blender/`）
 - 音效與音樂：Web Audio 即時合成，沒有音檔
 
@@ -87,6 +88,7 @@ python3 test/ads.py    # 廣告（假廣告模式）與移除廣告
 | `src/render3d.js` | Three.js 畫面 |
 | `src/main.js` | 操作、流程、介面 |
 | `src/turntable.js` | 過關時旋轉的 Q 版建築模型 |
+| `src/outline.js` | 卡通粗描邊 |
 | `src/i18n.js` | 中英文介面文字 |
 | `src/coach.js` | 第一、二關的互動教學、工頭示範虛線、結構檢測結果 |
 | `src/shop.js` | 商店品項、價格與庫存 |

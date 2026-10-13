@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { L, TH, levelTerrain, PARAMS } from './sim.js';
 import { MATCH_GLB } from './assets.js';
+import { Outline } from './outline.js';
 
 const b64buf = b64 => { const s = atob(b64); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; };
 const seeded = seed => { let s = seed >>> 0 || 1; return () => ((s = (s * 16807) % 2147483647) / 2147483647); };
@@ -103,6 +104,8 @@ export class View {
     this.depth = 0; this.depthGoal = 0;
     this.shake = 0; this.time = 0; this.born = new Map();
     this.reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // 卡通描邊: thick ink lines around everything solid (fading a little into the distant scenery)
+    this.outline = new Outline(r, { thick: 3.2, lo: 0.012, hi: 0.035, farFrom: 45, farTo: 150, farKeep: 0.5, opacity: 1 });
     this.resize();
   }
 
@@ -495,6 +498,7 @@ export class View {
   }
 
   _silhouette(level) {
+    this.silMeshes = [];   // a faint guide, never outlined
     const ax = level.anchors.map(a => a[0]);
     const x0 = (Math.min(...ax) - 0.15) * L, x1 = (Math.max(...ax) + 0.15) * L;
     const top = (Math.max(...level.stars.map(s => s[1])) + 0.25) * L;
@@ -502,12 +506,12 @@ export class View {
     const add = pts => {
       const shape = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)));
       const m = new THREE.Mesh(new THREE.ShapeGeometry(shape), mat);
-      m.position.z = -DEPTH - 1.2; this.terrainG.add(m);
+      m.position.z = -DEPTH - 1.2; this.terrainG.add(m); this.silMeshes.push(m);
     };
     if (level.sil) add(level.sil.map(([nx, ny]) => [x0 + nx * (x1 - x0), ny * top]));
     if (level.circles) for (const [cx, cy, r] of level.circles) {
       const m = new THREE.Mesh(new THREE.CircleGeometry(r * L, 28), mat);
-      m.position.set(cx * L, cy * L, -DEPTH - 1.15); this.terrainG.add(m);
+      m.position.set(cx * L, cy * L, -DEPTH - 1.15); this.terrainG.add(m); this.silMeshes.push(m);
     }
     if (level.spires) {
       add([[x0, 0], [x1, 0], [x1 - 0.4, 0.42 * top], [x0 + 0.4, 0.42 * top]]);
@@ -1100,6 +1104,9 @@ export class View {
       this.flameLight.distance = 9 + Math.min(10, this.fireCount * 0.3);
     }
     this.flameLight.intensity = li * (0.8 + Math.random() * 0.4);
-    this.renderer.render(this.scene, this.camera);
+    // effects, sprites and see-through helpers don't get an outline
+    const hide = [...(this.silMeshes || []), this.fxG, this.embers, this.fireOut, this.fireIn, this.smoke, this.sparkI, this.snowPts, this.ghost, ...this.markers, ...this.starMeshes.map(g => g.children[1])];
+    if (this.itemG) for (const o of this.itemG.children) if (o.renderOrder === 7) hide.push(o);
+    this.outline.render(this.scene, this.camera, hide);
   }
 }

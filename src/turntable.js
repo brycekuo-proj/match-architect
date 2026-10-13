@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { LANDMARKS } from './assets.js';
+import { Outline } from './outline.js';
 
 const b64buf = b64 => { const s = atob(b64); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; };
 export const hasLandmark = key => !!(LANDMARKS && LANDMARKS[key]);
@@ -15,6 +16,7 @@ export class Turntable {
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.1;
+    this.outline = new Outline(r, { thick: 2.8, lo: 0.012, hi: 0.035, opacity: 1 });   // 卡通描邊, same ink as the game
     const sc = this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(28, 1, 0.05, 100);
     sc.add(new THREE.HemisphereLight(0xfff6e6, 0x7a5636, 1.5));
@@ -100,7 +102,7 @@ export class Turntable {
     this.h = m.h; this.R = R;
     this.renderer.setSize(size, size, false); this._frameCam(1);
     this.stage.rotation.y = -0.55;
-    this.renderer.render(this.scene, this.camera);
+    this.outline.render(this.scene, this.camera, [this.shadow]);
     const url = this.renderer.domElement.toDataURL('image/png');
     if (wasRunning) { this.last = performance.now(); this.raf = requestAnimationFrame(this._frame); }
     return url;
@@ -131,7 +133,7 @@ export class Turntable {
     const u = Math.max(0, Math.min(1, this.t / 0.55)), pop = u < 1 ? 1 - Math.pow(1 - u, 3) * Math.cos(u * 7) : 1;
     this.pivot.scale.setScalar(0.4 + 0.6 * pop);
     if (this.canvas.clientWidth && Math.abs(this.canvas.clientWidth * Math.min(window.devicePixelRatio || 1, 2) - this.renderer.domElement.width) > 2) this._resize();
-    this.renderer.render(this.scene, this.camera);
+    this.outline.render(this.scene, this.camera, [this.shadow]);
     this.raf = requestAnimationFrame(this._frame);
   };
 }
