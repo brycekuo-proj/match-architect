@@ -1,5 +1,5 @@
 // 火柴建築師 Match Architect — level data, build-graph (Design) and 2D physics (Sim) on Planck.js
-import { World, Vec2, Box, Chain, Circle, RevoluteJoint, PrismaticJoint, DistanceJoint } from 'planck';
+import { World, Vec2, Box, Chain, Circle, RevoluteJoint, PrismaticJoint, DistanceJoint, WeldJoint } from 'planck';
 import { fullLevels } from './levels_full.js';
 
 export const L = 2.0;            // fixed match length (m)
@@ -33,6 +33,17 @@ export const PARAMS = {
   damperShare: 0.8,        // 阻尼球: share of the sway it takes off the matches right next to it…
   damperReach: 4.5,        // …fading to nothing this many match lengths away
   damperDrop: 0.6,         // how far below its joint the ball is drawn (m)
+  // 軟地基 (soft ground): an anchor there sits on a footing that holds this much push before it sinks, down to softSink
+  softCap: 60,             // N
+  softSink: 0.7,           // m
+};
+// 屋頂載重: what a heavy star can be, its drawn size (m) and where its weight sits relative to the star (m)
+export const LOADS = {
+  tank: { w: 0.9, h: 0.9, dy: 0.55 },     // water tank on the roof
+  bell: { w: 0.7, h: 0.75, dy: -0.45 },   // bell hanging under a beam
+  sign: { w: 1.7, h: 0.8, dy: 0.5 },      // big sign board
+  garden: { w: 1.9, h: 0.3, dy: 0.2 },    // roof garden: soil and trees
+  hoop: { w: 0.8, h: 0.55, dy: 0.1 },     // backboard and hoop
 };
 
 // 震度 ladder: ground amplitude A (m) and frequency f (Hz)
@@ -65,60 +76,104 @@ const between = (t, a, b, up = 0.25, down = 0.4) => sm((t - a) / up) * sm((b - t
 // the plain sway: main swing plus a little irregular wobble (peak acceleration ≈ 1.4·A·ω²) and a slight vertical bob
 const swayX = (A, w, t) => A * (Math.sin(w * t) + 0.25 * Math.sin(w * 1.62 * t + 1.3));
 const swayY = (A, w, t) => A * 0.1 * Math.sin(w * 1.31 * t + 0.4);
-const plainEnv = t => sm(t / 0.8) * sm((QUAKE_TIME - t) / 0.8);
-// ground displacement [x, y] (m) at time t for a quake type
-export function groundMotion(type, q, t) {
-  const A = q.A, w = 2 * Math.PI * q.f, T = QT[type];
+const plainEnv = (t, D = QUAKE_TIME) => sm(t / 0.8) * sm((D - t) / 0.8);
+// 混合: a level whose qtype is a list ['jolt', 'long'] gets type 'mix' — the types follow one another, each over an
+// equal share of the 10 seconds (each fades in and out on its own, so there is a short lull between them)
+export const mixSegments = (q, D = QUAKE_TIME) => { const m = (q && q.mix) || ['sway'], n = m.length; return m.map((ty, i) => [ty, i * D / n, (i + 1) * D / n]); };
+// the times a type's events happen at, for a quake of length D (they are spaced for 10 s and scale with D)
+function typeTimes(type, D) {
+  const T = QT[type], s = D / QUAKE_TIME;
+  switch (type) {
+    case 'jolt': return { bursts: T.bursts.map(([a, b]) => [a * s, b * s]) };
+    case 'long': return { ramp: Math.min(T.ramp, D * 0.3) };
+    case 'after': return { mainEnd: T.mainEnd * s, start: T.start * s };
+    case 'ps': return { sAt: Math.min(T.sAt, D * 0.3) };
+    case 'pulse': return { pulses: T.pulses.map(([t0, Tp, g]) => [t0 * s, Math.min(Tp, D * 0.12), g]) };
+    default: return {};
+  }
+}
+// ground displacement [x, y] (m) at time t for a quake type lasting D seconds
+export function groundMotion(type, q, t, D = QUAKE_TIME) {
+  if (t <= 0 || t >= D) return [0, 0];
+  if (type === 'mix') {
+    let x = 0, y = 0;
+    for (const [ty, a, b] of mixSegments(q, D)) if (t > a && t < b) { const [mx, my] = groundMotion(ty, q, t - a, b - a); x += mx; y += my; }
+    return [x, y];
+  }
+  const A = q.A, w = 2 * Math.PI * q.f, T = QT[type], tt = typeTimes(type, D);
   switch (type) {
     case 'jolt': {
       // vertical: bursts at vf × the sway frequency, peak acceleration vg × the sway's PGA
       // (capped at vMax m/s², about 2.6 g, so the strongest 震度 don't simply shake heavy towers apart)
       const vw = w * T.vf, vA = Math.min(T.vg * 1.4 * A * w * w, T.vMax) / (vw * vw);
-      let ve = 0; for (const [a, b] of T.bursts) ve = Math.max(ve, between(t, a, b, 0.3, 0.5));
-      const e = plainEnv(t);
+      let ve = 0; for (const [a, b] of tt.bursts) ve = Math.max(ve, between(t, a, b, 0.3, 0.5));
+      const e = plainEnv(t, D);
       return [T.hx * e * swayX(A, w * 1.25, t), vA * ve * (Math.sin(vw * t) + 0.3 * Math.sin(vw * 2.1 * t + 0.7))];
     }
     case 'long': {
       const wl = 2 * Math.PI * T.f, Al = T.pga * 1.4 * A * w * w / (wl * wl);
-      const e = sm(t / T.ramp) * sm((QUAKE_TIME - t) / 1.2);
+      const e = sm(t / tt.ramp) * sm((D - t) / 1.2);
       return [Al * e * (Math.sin(wl * t) + 0.15 * Math.sin(wl * 1.7 * t + 0.9)), 0];
     }
     case 'after': {
-      const e1 = sm(t / 0.8) * sm((T.mainEnd - t) / 0.6);
-      const e2 = between(t, T.start, QUAKE_TIME, 0.2, 0.8) * T.gain, t2 = t - T.start;
+      const e1 = sm(t / 0.8) * sm((tt.mainEnd - t) / 0.6);
+      const e2 = between(t, tt.start, D, 0.2, 0.8) * T.gain, t2 = t - tt.start;
       return [e1 * swayX(A, w, t) + e2 * swayX(A, w * T.fr, t2), e1 * swayY(A, w, t) + e2 * swayY(A, w * T.fr, t2)];
     }
     case 'ps': {
       // P wave: a light, fast vertical rattle; S wave: the full sway (a bit stronger), arriving almost at once
-      const pw = w * T.pf, pA = T.pg * 1.4 * A / (T.pf * T.pf), eP = between(t, 0, T.sAt + 0.4, 0.15, 0.6), eS = between(t, T.sAt, QUAKE_TIME, 0.3, 0.8);
-      return [0.12 * eP * swayX(A, w * 1.8, t) + T.sg * eS * swayX(A, w, t - T.sAt), pA * eP * Math.sin(pw * t) + eS * swayY(A, w, t)];
+      const pw = w * T.pf, pA = T.pg * 1.4 * A / (T.pf * T.pf), eP = between(t, 0, tt.sAt + 0.4, 0.15, 0.6), eS = between(t, tt.sAt, D, 0.3, 0.8);
+      return [0.12 * eP * swayX(A, w * 1.8, t) + T.sg * eS * swayX(A, w, t - tt.sAt), pA * eP * Math.sin(pw * t) + eS * swayY(A, w, t)];
     }
     case 'pulse': {
-      const e = plainEnv(t);
+      const e = plainEnv(t, D);
       let x = T.bg * e * swayX(A, w, t);
-      for (const [t0, Tp, g] of T.pulses) {
+      for (const [t0, Tp, g] of tt.pulses) {
         // one back-and-forth shove of the ground: displacement D·(1 − cos)/2, peak acceleration g × the sway's PGA
         if (t <= t0 || t >= t0 + Tp) continue;
-        const wp = 2 * Math.PI / Tp, D = g * 1.4 * A * w * w / (0.5 * wp * wp);
-        x += D * 0.5 * (1 - Math.cos(wp * (t - t0)));
+        const wp = 2 * Math.PI / Tp, Dp = g * 1.4 * A * w * w / (0.5 * wp * wp);
+        x += Dp * 0.5 * (1 - Math.cos(wp * (t - t0)));
       }
       return [x, T.bg * e * swayY(A, w, t)];
     }
-    default: { const e = plainEnv(t); return [e * swayX(A, w, t), e * swayY(A, w, t)]; }
+    default: { const e = plainEnv(t, D); return [e * swayX(A, w, t), e * swayY(A, w, t)]; }
   }
 }
 // rough "how hard is it shaking" for the HUD, rumble and camera (the plain sway at full strength = 1)
-export function quakeGain(type, t) {
-  const T = QT[type];
+export function quakeGain(type, t, D = QUAKE_TIME, q = null) {
+  if (t <= 0 || t >= D) return 0;
+  if (type === 'mix') { let g = 0; for (const [ty, a, b] of mixSegments(q, D)) if (t > a && t < b) g = Math.max(g, quakeGain(ty, t - a, b - a)); return g; }
+  const T = QT[type], tt = typeTimes(type, D);
   switch (type) {
-    case 'jolt': { let ve = 0; for (const [a, b] of T.bursts) ve = Math.max(ve, between(t, a, b, 0.3, 0.5)); return Math.max(T.hx * plainEnv(t), ve * 1.1); }
-    case 'long': return 0.75 * sm(t / T.ramp) * sm((QUAKE_TIME - t) / 1.2);
-    case 'after': return Math.max(sm(t / 0.8) * sm((T.mainEnd - t) / 0.6), between(t, T.start, QUAKE_TIME, 0.2, 0.8) * T.gain);
-    case 'ps': return Math.max(0.3 * between(t, 0, T.sAt + 0.4, 0.15, 0.6), T.sg * between(t, T.sAt, QUAKE_TIME, 0.3, 0.8));
-    case 'pulse': { let p = 0; for (const [t0, Tp, g] of T.pulses) if (t > t0 && t < t0 + Tp) p = Math.max(p, Math.abs(g) * Math.sin(Math.PI * (t - t0) / Tp)); return Math.max(T.bg * plainEnv(t), p); }
-    default: return plainEnv(t);
+    case 'jolt': { let ve = 0; for (const [a, b] of tt.bursts) ve = Math.max(ve, between(t, a, b, 0.3, 0.5)); return Math.max(T.hx * plainEnv(t, D), ve * 1.1); }
+    case 'long': return 0.75 * sm(t / tt.ramp) * sm((D - t) / 1.2);
+    case 'after': return Math.max(sm(t / 0.8) * sm((tt.mainEnd - t) / 0.6), between(t, tt.start, D, 0.2, 0.8) * T.gain);
+    case 'ps': return Math.max(0.3 * between(t, 0, tt.sAt + 0.4, 0.15, 0.6), T.sg * between(t, tt.sAt, D, 0.3, 0.8));
+    case 'pulse': { let p = 0; for (const [t0, Tp, g] of tt.pulses) if (t > t0 && t < t0 + Tp) p = Math.max(p, Math.abs(g) * Math.sin(Math.PI * (t - t0) / Tp)); return Math.max(T.bg * plainEnv(t, D), p); }
+    default: return plainEnv(t, D);
   }
 }
+// what happens when, for the banners and the aftershock: [{ t, phase, big?, type? }] sorted by time
+export function quakeTimeline(q) {
+  const out = [], type = q.type || 'sway';
+  const segs = type === 'mix' ? mixSegments(q) : [[type, 0, QUAKE_TIME]];
+  segs.forEach(([ty, a, b], i) => {
+    const tt = typeTimes(ty, b - a);
+    if (i > 0) out.push({ t: a + 0.05, phase: 'next', quake: ty, n: i + 1 });   // (not `type`: the event already has one)
+    if (ty === 'after') { out.push({ t: a + tt.mainEnd + 0.3, phase: 'calm' }); out.push({ t: a + tt.start, phase: 'aftershock' }); }
+    if (ty === 'ps') { out.push({ t: a + 0.3, phase: 'pwave' }); out.push({ t: a + tt.sAt, phase: 'swave' }); }
+    if (ty === 'pulse') for (const [t0, , g] of tt.pulses) out.push({ t: a + t0, phase: 'pulse', big: Math.abs(g) });
+  });
+  return out.sort((x, y) => x.t - y.t);
+}
+// share of the building's own sway the quake drives at time t (0 = none), for long-period and pulse parts
+export function flexShareAt(q, t) {
+  const type = q.type || 'sway';
+  if (type !== 'mix') return (QT[type] && QT[type].flex) || 0;
+  for (const [ty, a, b] of mixSegments(q)) if (t >= a && t < b) return (QT[ty] && QT[ty].flex) || 0;
+  return 0;
+}
+export const quakeHasFlex = q => (q.type === 'mix' ? q.mix || [] : [q.type || 'sway']).some(ty => QT[ty] && QT[ty].flex);
 
 // ---------------------------------------------------------------- levels (coordinates in match lengths)
 const FLAT = [[-40, 0], [50, 0], [50, -2], [-40, -2]];
@@ -152,7 +207,7 @@ const BASE = [  // each entry is one commission (委託)
     sil: [[0, 0], [1, 0], [1, .27], [.9, .45], [.5, .45], [.46, .72], [.44, .92], [.37, 1], [.28, .95], [.25, .72], [.19, .57], [.06, .45], [0, .22]],
   },
   {
-    id: 5, key: 'pyramid', en: {"name": "Great Pyramid", "place": "Giza, Egypt", "real": "originally about 146 m tall", "desc": "Built 4,500 years ago. The tip has to touch the star.", "hint": "Every new joint needs two matches holding it from different directions."}, name: '古夫金字塔', place: '埃及 · 吉薩', real: '原高約 146 公尺', shindo: '5弱', par: 12, biome: 'sand',
+    id: 5, key: 'pyramid', en: {"name": "Great Pyramid", "place": "Giza, Egypt", "real": "originally about 146 m tall", "desc": "Built 4,500 years ago. The tip has to touch the star.", "hint": "Every new joint needs two matches holding it from different directions."}, name: '古夫金字塔', place: '埃及 · 吉薩', real: '原高約 146 公尺', shindo: '5弱', qtype: 'jolt', par: 12, biome: 'sand',
     desc: '四千五百年前的金字塔。塔尖要碰到星星。',
     hint: '每個新的接點都要有兩支火柴從不同方向撐住。',
     anchors: range(0, 3), stars: [[1.5, row(3)]],
@@ -166,14 +221,14 @@ const BASE = [  // each entry is one commission (委託)
     sil: [[.06, 0], [.4, 0], [.95, .9], [.95, 1], [.66, 1], [.62, .9]],
   },
   {
-    id: 7, key: 'eiffel', en: {"name": "Eiffel Tower", "place": "Paris, France", "real": "about 330 m tall", "desc": "Four legs spread wide with an arch in the middle. The tip has to touch the star.", "hint": "Build one slanted leg on each side and join them at the top."}, name: '艾菲爾鐵塔', place: '法國 · 巴黎', real: '高約 330 公尺', shindo: '6弱', par: 20,
+    id: 7, key: 'eiffel', en: {"name": "Eiffel Tower", "place": "Paris, France", "real": "about 330 m tall", "desc": "Four legs spread wide with an arch in the middle. The tip has to touch the star.", "hint": "Build one slanted leg on each side and join them at the top."}, name: '艾菲爾鐵塔', place: '法國 · 巴黎', real: '高約 330 公尺', shindo: '6弱', qtype: 'ps', par: 20,
     desc: '四隻腳張開的鐵塔，中間是拱門。塔尖要碰到星星。',
     hint: '兩邊各蓋一隻斜腳，在上面合起來。',
     anchors: [[0, 0], [1, 0], [3, 0], [4, 0]], stars: [[2, row(4)]],
     sil: [[0, 0], [.25, 0], [.33, .17], [.5, .24], [.67, .17], [.75, 0], [1, 0], [.62, .55], [.55, .82], [.515, 1], [.485, 1], [.45, .82], [.38, .55]],
   },
   {
-    id: 8, key: 'tokyotower', en: {"name": "Tokyo Tower", "place": "Tokyo, Japan", "real": "333 m tall", "desc": "Taller and slimmer than the Eiffel Tower, and the quake is stronger too.", "hint": "Spread the legs on the lower half, then run a straight column of triangles up the top half."}, name: '東京鐵塔', place: '日本 · 東京', real: '高 333 公尺', shindo: '6強', par: 28,
+    id: 8, key: 'tokyotower', en: {"name": "Tokyo Tower", "place": "Tokyo, Japan", "real": "333 m tall", "desc": "Taller and slimmer than the Eiffel Tower, and the quake is stronger too.", "hint": "Spread the legs on the lower half, then run a straight column of triangles up the top half."}, name: '東京鐵塔', place: '日本 · 東京', real: '高 333 公尺', shindo: '6強', qtype: 'after', par: 28,
     desc: '比艾菲爾更高更細的紅白鐵塔，地震也更強了。',
     hint: '下半段張開腳，上半段用一條直直往上的三角形柱子。',
     anchors: [[0, 0], [1, 0], [3, 0], [4, 0]], stars: [[2, row(6)]],
@@ -188,8 +243,8 @@ const BASE = [  // each entry is one commission (委託)
     circles: [[1.5, row(3), 0.7], [1.5, row(7) - 0.1, 0.45]],
   },
   {
-    id: 10, key: 'taipei101', en: {"name": "Taipei 101", "place": "Taipei, Taiwan", "real": "508 m tall", "desc": "It grows upward one section at a time, like bamboo. A wider base and a bigger quake.", "hint": "The higher the triangles in the base go, the harder the tower is to snap."}, name: '台北 101', place: '台灣 · 台北', real: '高 508 公尺', shindo: '6強', par: 50,
-    desc: '像竹節一樣一節一節往上長。底座更寬了，地震也更大。',
+    id: 10, key: 'taipei101', en: {"name": "Taipei 101", "place": "Taipei, Taiwan", "real": "508 m tall", "desc": "It grows upward one section at a time, like bamboo. A long-period quake makes tall towers sway more and more, so the client gives you a mass damper. The real Taipei 101 has one too.", "hint": "The higher the triangles in the base go, the harder the tower is to snap."}, name: '台北 101', place: '台灣 · 台北', real: '高 508 公尺', shindo: '6強', qtype: 'long', supply: { damper: 1 }, par: 50,
+    desc: '像竹節一樣一節一節往上長。長週期地震會讓高樓越晃越大，業主送你一顆阻尼球，真的台北 101 也掛了一顆。',
     hint: '底座的三角形疊得越高，上面的塔越不容易被晃斷。',
     anchors: range(0, 6), stars: [[3, row(8)]],
     sil: [[.32, 0], [.68, 0], [.65, .14], [.62, .14], [.64, .24], [.61, .24], [.63, .34], [.6, .34], [.62, .44], [.59, .44], [.61, .54], [.58, .54], [.6, .64], [.57, .64], [.59, .74], [.56, .74], [.55, .86], [.52, .86], [.5, 1], [.48, .86], [.45, .86], [.44, .74], [.41, .74], [.43, .64], [.4, .64], [.42, .54], [.39, .54], [.41, .44], [.38, .44], [.4, .34], [.37, .34], [.39, .24], [.36, .24], [.38, .14], [.35, .14]],
@@ -198,15 +253,17 @@ const BASE = [  // each entry is one commission (委託)
 ];
 export const LEVELS = BASE.map(o => {
   const xs = [...o.anchors.map(a => a[0]), ...o.stars.map(s => s[0])];
-  const top = Math.max(...o.stars.map(s => s[1]));
+  // a heavy star (water tank, sign…) reaches above its star
+  const loadTop = i => { const ld = (o.loads || []).find(l => l.star === i), K = ld && LOADS[ld.kind]; return K ? Math.max(0, (K.dy + K.h / 2) / L) : 0; };
+  const top = Math.max(...o.stars.map((s, i) => s[1] + loadTop(i)));
   const lv = {
     terrain: [FLAT], ...o, budget: o.par * 2,   // match quota = 2× the 3-star target
-    quake: { ...SHINDO[o.shindo], type: o.qtype || 'sway' },
-    view: [Math.min(...xs) - 0.55, Math.max(...xs) + 0.55, -0.3, top + 0.4],
+    quake: { ...SHINDO[o.shindo], type: Array.isArray(o.qtype) ? 'mix' : (o.qtype || 'sway'), ...(Array.isArray(o.qtype) ? { mix: o.qtype } : {}) },
+    view: [Math.min(...xs) - 0.55, Math.max(...xs) + 0.55, Math.min(0, ...o.anchors.map(a => a[1])) - 0.3, top + 0.4],
   };
   if (!o.tag) lv.tag = '名建築';
   return lv;
-});
+}).sort((a, b) => a.id - b.id);   // the full edition merges jobs from several files; play them in job order
 
 // ---------------------------------------------------------------- geometry helpers
 export function pointInPoly(x, y, poly) {
@@ -231,6 +288,25 @@ function circleSeg(cx, cy, r, x1, y1, x2, y2) {
   if (disc < 0) return [];
   const s = Math.sqrt(disc);
   return [(-b - s) / (2 * a), (-b + s) / (2 * a)];
+}
+// cut a pit `depth` deep into every horizontal ground edge under each [a, b] span (m) — the collision shape under mud
+function softDug(polys, spans, depth) {
+  if (!spans.length) return polys;
+  return polys.map(poly => {
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const [x1, y1] = poly[i], [x2, y2] = poly[(i + 1) % poly.length];
+      out.push([x1, y1]);
+      if (Math.abs(y1 - y2) > 1e-9) continue;
+      const lo = Math.min(x1, x2), hi = Math.max(x1, x2), dir = x2 > x1 ? 1 : -1;
+      const cuts = spans.filter(([a, b]) => a > lo && b < hi).sort((u, v) => dir * (u[0] - v[0]));
+      for (const [a, b] of cuts) {
+        const [p, q] = dir > 0 ? [a, b] : [b, a];
+        out.push([p, y1], [p, y1 - depth], [q, y1 - depth], [q, y1]);
+      }
+    }
+    return out;
+  });
 }
 export function levelTerrain(level) {
   return level.terrain.map(poly => poly.map(([x, y]) => [x * L, y * L]));
@@ -427,7 +503,8 @@ export class Sim {
     this.t = 0; this.state = 'running'; this.reason = ''; this.events = []; this.breaks = 0;
     const w = this.world = new World({ gravity: new Vec2(0, -P.gravity) });
     const g = this.ground = w.createBody({ type: 'kinematic', position: new Vec2(0, 0) });
-    for (const poly of levelTerrain(level)) {
+    // under soft ground (軟地基) the solid ground is dug out, so what stands in the mud can sink into it
+    for (const poly of softDug(levelTerrain(level), (level.soft || []).map(([a, b]) => [a * L - 0.35, b * L + 0.35]), P.softSink + 0.5)) {
       g.createFixture(new Chain(poly.map(([x, y]) => new Vec2(x, y)), true),
         { friction: 0.9, filterCategoryBits: CAT.TERRAIN, filterMaskBits: CAT.STRUCT });
     }
@@ -458,16 +535,29 @@ export class Sim {
       base = slab;
     }
     this.base = base;
+    // 軟地基: an anchor inside a level.soft range sits on its own footing that can sink (a vertical slider whose motor
+    // holds up to softCap newtons, then gives way, down to softSink)
+    const soft = level.soft || [], cap = level.softCap || P.softCap;
+    this.footings = new Map(); this.sinks = [];
+    for (const n of design.nodes) {
+      if (n.kind !== 'anchor' || !soft.some(([a, b]) => n.x >= a * L - 1e-6 && n.x <= b * L + 1e-6)) continue;
+      const f = w.createBody({ type: 'dynamic', position: new Vec2(n.x, n.y), fixedRotation: true });
+      f.createFixture(new Box(0.15, 0.15), { density: 3, filterCategoryBits: 0, filterMaskBits: 0 });
+      w.createJoint(new PrismaticJoint({ enableLimit: true, lowerTranslation: -P.softSink, upperTranslation: 0, enableMotor: true, maxMotorForce: cap, motorSpeed: 0 },
+        base, f, new Vec2(n.x, n.y), new Vec2(0, 1)));
+      this.footings.set(n.id, { body: f, y: n.y });
+    }
+    this.sinks = design.nodes.filter(n => n.kind === 'anchor').map(n => this.footings.get(n.id) || null);
     const pin = (ba, bb, x, y, nodeId) => {
       const j = w.createJoint(new RevoluteJoint({ enableMotor: true, motorSpeed: 0, maxMotorTorque: P.jointTorque, collideConnected: false }, ba, bb, new Vec2(x, y)));
       const sticks = [ba.stickId, bb.stickId].filter(v => v !== undefined);
       const u = new Map();   // where along each match (0 = end a, 1 = end b) this glue sits
       for (const sid of sticks) { const [ax, ay, bx, by] = design.ends(design.stick(sid)); u.set(sid, segDist(x, y, ax, ay, bx, by).t); }
-      this.joints.push({ j, nodeId, sticks, u, f: 0, broken: false, x, y, peak: 0, anchor: ba === base, cfrp: sticks.some(sid => this.wraps.has(sid)) });
+      this.joints.push({ j, nodeId, sticks, u, f: 0, broken: false, x, y, peak: 0, anchor: ba === base || ba.footing, cfrp: sticks.some(sid => this.wraps.has(sid)) });
     };
     for (const n of design.nodes) {
       const inc = design.sticks.filter(s => s.a === n.id || s.b === n.id);
-      if (n.kind === 'anchor') { for (const s of inc) pin(base, this.bodies.get(s.id), n.x, n.y, n.id); continue; }
+      if (n.kind === 'anchor') { const ft = this.footings.get(n.id), on = ft ? ft.body : base; if (ft) on.footing = true; for (const s of inc) pin(on, this.bodies.get(s.id), n.x, n.y, n.id); continue; }
       if (n.kind === 'glue' && this.bodies.has(n.host)) { const hb = this.bodies.get(n.host); for (const s of inc) pin(hb, this.bodies.get(s.id), n.x, n.y, n.id); continue; }
       if (inc.length >= 2) { const hub = this.bodies.get(inc[0].id); for (const s of inc.slice(1)) pin(hub, this.bodies.get(s.id), n.x, n.y, n.id); }
     }
@@ -485,6 +575,21 @@ export class Sim {
         const body = this.bodies.get(best.s.id);
         this.stars.push({ body, local: body.getLocalPoint(new Vec2(best.px, best.py)), home: { x: best.px, y: best.py }, lost: false });
       }
+    }
+    // 屋頂載重: a heavy star (water tank, bell, sign…) is a weight welded to the match that holds that star
+    this.loads = [];
+    for (const ld of level.loads || []) {
+      const st = this.stars[ld.star], K = LOADS[ld.kind] || LOADS.tank; if (!st) continue;
+      const p = st.body.getWorldPoint(st.local);
+      const b = w.createBody({ type: 'dynamic', position: new Vec2(p.x, p.y + K.dy), angularDamping: 0.3 });
+      b.createFixture(new Box(K.w / 2, K.h / 2), { density: ld.kg / (K.w * K.h), friction: 0.8, filterCategoryBits: CAT.STRUCT, filterMaskBits: CAT.TERRAIN });
+      w.createJoint(new WeldJoint({}, st.body, b, new Vec2(p.x, p.y)));
+      this.loads.push({ body: b, kind: ld.kind, kg: ld.kg, star: ld.star });
+    }
+    // the bearings carry the roof loads too: keep the isolation period the same with them on
+    if (this.iso && this.loads.length) {
+      const M = this.slab.getMass() + mStruct + this.loads.reduce((m, l) => m + l.body.getMass(), 0), om = 2 * Math.PI * P.isoFreq;
+      this.iso.k = M * om * om; this.iso.c = 2 * P.isoDamping * M * om;
     }
     this.stress = new Map();
     this.burn = new Map();   // stickId → { lo, hi, len } burnt span along the match (0 = end a, the match head)
@@ -514,20 +619,27 @@ export class Sim {
     // than a real tower, so its first mode is modelled (like the damper) as one oscillator, natural frequency from the
     // height (taller = slower). Its swing pushes on every match in proportion to how high up it is.
     this.qt = (level.quake && level.quake.type) || 'sway';
-    const share = QT[this.qt] && QT[this.qt].flex;
-    let top = 0; for (const s of design.sticks) { const [, y1, , y2] = design.ends(s); top = Math.max(top, y1, y2); }
-    this.height = top;
-    if (share && top > 0.5) {
+    // height above the lowest anchor (on stepped ground the building starts higher up)
+    const y0 = Math.min(0, ...level.anchors.map(a => a[1] * L));
+    let top = 0; for (const s of design.sticks) { const [, y1, , y2] = design.ends(s); top = Math.max(top, y1 - y0, y2 - y0); }
+    this.height = top; this.baseY = y0;
+    if (quakeHasFlex(level.quake) && top > 0.5) {
       const fn = Math.max(FLEX.fMin, Math.min(FLEX.fMax, FLEX.k / top));
-      this.flex = { share, H: top, fn, w: 2 * Math.PI * fn, u: 0, v: 0, acc: 0, vPrev: 0, peak: 0 };
+      this.flex = { share: flexShareAt(level.quake, 0), H: top, fn, w: 2 * Math.PI * fn, u: 0, v: 0, acc: 0, vPrev: 0, peak: 0 };
     }
     this.phase = 'main';
+    this.timeline = quakeTimeline(level.quake); this.tlN = 0;
+  }
+  // how far soft-ground anchor i (in level.anchors order) has sunk (m, ≤ 0); 0 on firm ground
+  anchorSink(i) {
+    const ft = this.sinks[i]; if (!ft) return 0;
+    return Math.min(0, ft.body.getPosition().y - this.base.getPosition().y - ft.y);
   }
   // the body a joint (node) rides on, and where on it
   holder(nodeId) {
     const n = this.design.node(nodeId); if (!n) return null;
     let body = null;
-    if (n.kind === 'anchor') body = this.base;
+    if (n.kind === 'anchor') body = this.footings && this.footings.get(n.id) ? this.footings.get(n.id).body : this.base;
     else if (n.kind === 'glue' && this.bodies.has(n.host)) body = this.bodies.get(n.host);
     else { const st = this.design.sticks.find(s => s.a === n.id || s.b === n.id); body = st ? this.bodies.get(st.id) : null; }
     return body ? { body, local: body.getLocalPoint(new Vec2(n.x, n.y)) } : null;
@@ -553,7 +665,7 @@ export class Sim {
   // how hard the ground is shaking right now (the sway at full strength = A / 0.12); drives the rumble, dust and camera
   quakeLevel(t) {
     const q = this.level.quake, k = q.A / 0.12, fade = this.fireT !== null ? Math.max(0, 1 - (t - this.fireT) / 3) : 1;
-    return k * fade * quakeGain(this.qt, t);
+    return k * fade * quakeGain(this.qt, t, QUAKE_TIME, q);
   }
   _quakeTarget(t) {
     const q = this.level.quake;
@@ -568,39 +680,40 @@ export class Sim {
     const z = FLEX.zeta + (this.damper ? FLEX.damper : 0);
     const acc = -ab - 2 * z * F.w * F.v - F.w * F.w * F.u;
     F.v += acc * h; F.u += F.v * h; F.acc = acc; F.peak = Math.max(F.peak, Math.abs(F.u));
-    const y0 = this.base.getPosition().y;
-    for (const b of this.bodies.values()) {
+    F.share = flexShareAt(this.level.quake, this.t);   // a mixed quake only drives it during its long-period / pulse part
+    if (!F.share) return;
+    const y0 = this.base.getPosition().y + this.baseY;
+    const push = b => {
       const phi = Math.max(0, Math.min(1, (b.getPosition().y - y0) / F.H));
       if (phi > 0) b.applyForceToCenter(new Vec2(-F.share * b.getMass() * phi * acc, 0), true);
-    }
+    };
+    for (const b of this.bodies.values()) push(b);
+    for (const ld of this.loads) push(ld.body);
   }
   // how far the drawn building leans at height y because of its own sway (draw only; capped)
   flexLean(y) {
     const F = this.flex; if (!F || this.fireT !== null) return 0;
-    const phi = Math.max(0, Math.min(1, y / F.H));
-    return Math.max(-0.6, Math.min(0.6, F.u * F.share * 0.35)) * phi;
+    const phi = Math.max(0, Math.min(1, (y - this.baseY) / F.H));
+    return Math.max(-0.6, Math.min(0.6, F.u * (F.share || 0.6) * 0.35)) * phi;
   }
+  // P wave, S wave, the calm and the aftershock, fault pulses, the next part of a mixed quake (see quakeTimeline)
   _phases() {
-    const t = this.t, T = QT[this.qt];
-    if (this.qt === 'after') {
-      if (this.phase === 'main' && t >= T.mainEnd + 0.3) { this.phase = 'calm'; this.events.push({ type: 'phase', phase: 'calm' }); }
-      if (this.phase === 'calm' && t >= T.start) {
+    while (this.tlN < this.timeline.length && this.t >= this.timeline[this.tlN].t) {
+      const ev = this.timeline[this.tlN++];
+      if (ev.phase === 'aftershock') {
         // the aftershock: joints that came close to snapping in the main shock are weaker now
         this.phase = 'aftershock'; const scars = [];
         for (const J of this.joints) {
           if (J.broken) continue;
           const scar = Math.max(0, Math.min(1, (J.peak - 0.35) / 0.65));
-          J.weak = 1 - T.fatigue * scar;
+          J.weak = Math.min(J.weak || 1, 1 - QT.after.fatigue * scar);
           if (scar > 0.25) scars.push({ x: J.x, y: J.y });
         }
         this.events.push({ type: 'phase', phase: 'aftershock', scars });
+        continue;
       }
-    }
-    if (this.qt === 'ps' && this.phase === 'main' && t >= 0.3 && !this.pAnnounced) { this.pAnnounced = true; this.events.push({ type: 'phase', phase: 'pwave' }); }
-    if (this.qt === 'ps' && this.phase === 'main' && t >= T.sAt) { this.phase = 'swave'; this.events.push({ type: 'phase', phase: 'swave' }); }
-    if (this.qt === 'pulse') {
-      const i = this.pulseN || 0, p = T.pulses[i];
-      if (p && t >= p[0]) { this.pulseN = i + 1; this.events.push({ type: 'phase', phase: 'pulse', big: Math.abs(p[2]) }); }
+      if (ev.phase === 'calm' || ev.phase === 'swave') this.phase = ev.phase;
+      this.events.push({ type: 'phase', ...ev });
     }
   }
 
@@ -699,7 +812,9 @@ export class Sim {
 
   _checkGoals() {
     if (this.state !== 'running') return;
-    const go = this.ground.getPosition();
+    // stars are measured from what the building stands on: the ground, or the sliding base when it sits on bearings
+    // (a whole building gliding 0.6 m on its bearings hasn't dropped its stars)
+    const gp = this.ground.getPosition(), go = this.slab ? { x: this.slab.getPosition().x - this.iso.x0, y: gp.y } : gp;
     for (const st of this.stars) {
       const wp = st.body.getWorldPoint(st.local);
       if (Math.hypot(wp.x - go.x - st.home.x, wp.y - go.y - st.home.y) > 0.3 * L) {

@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { L, TH, levelTerrain, PARAMS } from './sim.js';
+import { L, TH, levelTerrain, PARAMS, LOADS } from './sim.js';
 import { MATCH_GLB } from './assets.js';
 import { Outline } from './outline.js';
 
@@ -436,7 +436,8 @@ export class View {
     this.level = level;
     for (const g of [this.terrainG, this.fxG]) { while (g.children.length) g.remove(g.children[0]); }
     if (this.chars) this._clearFire();
-    for (const m of [...this.markers, ...this.starMeshes]) this.structG.remove(m);
+    for (const m of [...this.markers, ...this.starMeshes, ...(this.loadMeshes || []).map(x => x.m)]) this.structG.remove(m);
+    this.loadMeshes = [];
     if (this.ghost) { this.structG.remove(this.ghost); this.ghost = null; }
     this.markers = []; this.starMeshes = []; this.particles = []; this.flames = []; this.anchorPins = []; this.isoG = null;
     this.matches.count = 0; this.globs.count = 0; this.born.clear();
@@ -469,7 +470,7 @@ export class View {
       }
       a.position.set(x, y, 0);
       a.traverse(o => { if (o.isMesh) o.castShadow = true; });
-      a.userData = { pin, rings, hx: x };
+      a.userData = { pin, rings, hx: x, hy: y };
       this.terrainG.add(a); this.anchorPins.push(a);
     }
     this._updateAnchors();
@@ -478,6 +479,25 @@ export class View {
       const s = this._starMesh();
       s.position.set(sx * L, sy * L, 0); s.userData.home = new THREE.Vector3(sx * L, sy * L, 0);
       this.structG.add(s); this.starMeshes.push(s);
+    }
+    // 屋頂載重: heavy stars (water tank, bell, sign…) drawn at their star
+    for (const ld of level.loads || []) {
+      const st = level.stars[ld.star]; if (!st) continue;
+      const m = this._loadMesh(ld.kind), K = LOADS[ld.kind] || LOADS.tank;
+      m.position.set(st[0] * L, st[1] * L + K.dy, 0);
+      this.structG.add(m); this.loadMeshes.push({ m, ld, home: m.position.clone() });
+    }
+    // 軟地基: a muddy strip where the ground is soft
+    for (const [a, b] of level.soft || []) {
+      const inside = level.anchors.filter(([x]) => x >= a - 1e-6 && x <= b + 1e-6), y = inside.length ? inside[0][1] * L : 0;
+      const mud = new THREE.Mesh(new THREE.BoxGeometry((b - a) * L + 0.9, 0.14, 9), new THREE.MeshStandardMaterial({ color: '#6b4a2e', flatShading: true, roughness: 1 }));
+      mud.position.set((a + b) / 2 * L, y - 0.05, -2.5); mud.receiveShadow = true;
+      this.terrainG.add(mud);
+      for (let k = 0; k < 4; k++) {
+        const puddle = new THREE.Mesh(new THREE.CircleGeometry(0.22 + R() * 0.25, 7), new THREE.MeshStandardMaterial({ color: '#8a6a48', roughness: 0.4 }));
+        puddle.rotation.x = -Math.PI / 2; puddle.position.set(a * L + R() * (b - a) * L, y + 0.025, -1.5 - R() * 5);
+        this.terrainG.add(puddle);
+      }
     }
     this._frameLevel(true);
     const [vx0, vx1, vy0, vy1] = level.view.map(v => v * L);
@@ -509,6 +529,7 @@ export class View {
       m.position.z = -DEPTH - 1.2; this.terrainG.add(m); this.silMeshes.push(m);
     };
     if (level.sil) add(level.sil.map(([nx, ny]) => [x0 + nx * (x1 - x0), ny * top]));
+    for (const poly of level.sils || []) add(poly.map(([nx, ny]) => [x0 + nx * (x1 - x0), ny * top]));
     if (level.circles) for (const [cx, cy, r] of level.circles) {
       const m = new THREE.Mesh(new THREE.CircleGeometry(r * L, 28), mat);
       m.position.set(cx * L, cy * L, -DEPTH - 1.15); this.terrainG.add(m); this.silMeshes.push(m);
@@ -572,6 +593,36 @@ export class View {
     return g;
   }
 
+  // 屋頂載重 models (simple, chunky, outlined like everything else)
+  _loadMesh(kind) {
+    const g = new THREE.Group(), K = LOADS[kind] || LOADS.tank;
+    const mat = c => new THREE.MeshStandardMaterial({ color: c, flatShading: true, roughness: 0.75 });
+    const add = (geo, c, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat(c)); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+    if (kind === 'bell') {
+      add(new THREE.CylinderGeometry(0.13, K.w / 2, K.h * 0.8, 10), '#d9a441', 0, 0.02);
+      add(new THREE.TorusGeometry(K.w / 2 - 0.02, 0.05, 6, 12), '#b98428', 0, -K.h * 0.4).rotation.x = Math.PI / 2;
+      add(new THREE.SphereGeometry(0.1, 8, 6), '#7a5a2a', 0, -K.h * 0.5);
+      add(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 6), '#5c3b28', 0, K.h * 0.5);
+    } else if (kind === 'sign') {
+      add(new THREE.BoxGeometry(K.w, K.h, 0.12), '#d9392b');
+      add(new THREE.BoxGeometry(K.w - 0.16, K.h - 0.16, 0.14), '#fff7e8');
+      for (const [x, c] of [[-0.45, '#1f8c84'], [0, '#f7c548'], [0.45, '#d9392b']]) add(new THREE.SphereGeometry(0.14, 8, 6), c, x, 0, 0.08);
+    } else if (kind === 'garden') {
+      add(new THREE.BoxGeometry(K.w, K.h, 1.1), '#7a4a2a');
+      add(new THREE.BoxGeometry(K.w - 0.1, 0.08, 1.0), '#5fae4f', 0, K.h / 2);
+      for (const x of [-0.6, 0.05, 0.62]) add(new THREE.IcosahedronGeometry(0.22, 0), '#3f9a4a', x, K.h / 2 + 0.2, 0.1);
+      add(new THREE.ConeGeometry(0.18, 0.5, 6), '#2f8a44', -0.25, K.h / 2 + 0.3, -0.25);
+    } else if (kind === 'hoop') {
+      add(new THREE.BoxGeometry(K.w, K.h, 0.06), '#fff7e8');
+      add(new THREE.BoxGeometry(0.3, 0.22, 0.07), '#d9392b', 0, -0.06);
+      add(new THREE.TorusGeometry(0.2, 0.035, 6, 14), '#ff8a1e', 0, -K.h / 2 + 0.02, 0.22).rotation.x = Math.PI / 2;
+    } else {   // water tank
+      add(new THREE.CylinderGeometry(K.w / 2, K.w / 2, K.h * 0.75, 12), '#8fbfd4', 0, -K.h * 0.05);
+      add(new THREE.ConeGeometry(K.w / 2 + 0.05, K.h * 0.28, 12), '#5a8fa8', 0, K.h * 0.46);
+      add(new THREE.CylinderGeometry(K.w / 2 + 0.02, K.w / 2 + 0.02, 0.06, 12), '#5a8fa8', 0, K.h * 0.12);
+    }
+    return g;
+  }
   _starMesh() {
     const s = new THREE.Shape();
     for (let i = 0; i < 10; i++) { const r = i % 2 ? 0.14 : 0.32, a = Math.PI / 2 + i * Math.PI / 5; const p = [Math.cos(a) * r, Math.sin(a) * r]; i ? s.lineTo(...p) : s.moveTo(...p); }
@@ -851,6 +902,8 @@ export class View {
     this._clearFire();
     this.depthGoal = 0; this.depth = 0; this._updateAnchors();
     for (const s of this.starMeshes) s.position.copy(s.userData.home);
+    for (const lm of this.loadMeshes || []) { lm.m.position.copy(lm.home); lm.m.rotation.z = 0; }
+    for (const a of this.anchorPins) a.position.y = a.userData.hy;
     for (const a of this.anchorPins) a.position.x = a.userData.hx;
     this.syncDesign(design);
     this.camGoal.yaw = -0.06; this.camGoal.pitch = 0.1;
@@ -913,6 +966,11 @@ export class View {
       const m = this.starMeshes[i]; if (!m) return;
       const p = st.body.getWorldPoint(st.local); m.position.set(lean(p.x, p.y), p.y, 0);
     });
+    (this.loadMeshes || []).forEach((lm, i) => {
+      const L0 = sim.loads && sim.loads[i]; if (!L0) return;
+      const p = L0.body.getPosition(); lm.m.position.set(lean(p.x, p.y), p.y, 0); lm.m.rotation.z = L0.body.getAngle();
+    });
+    if (sim.sinks && sim.sinks.some(Boolean)) this.anchorPins.forEach((a, i) => { a.position.y = a.userData.hy + sim.anchorSink(i); });
     this._syncItems(sim);
   }
 

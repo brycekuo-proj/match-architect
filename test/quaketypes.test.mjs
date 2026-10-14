@@ -7,7 +7,7 @@ const check = (ok, msg) => { console.log((ok ? 'PASS ' : 'FAIL ') + msg); if (!o
 const q = SHINDO['6弱'];
 const peak = (type, a = 0, b = QUAKE_TIME, axis = 0) => { let m = 0; for (let t = a; t <= b; t += 0.005) m = Math.max(m, Math.abs(groundMotion(type, q, t)[axis])); return m; };
 
-check(LEVELS.every(l => l.quake.type === 'sway'), 'every job is a plain sway unless it says otherwise');
+check(LEVELS.filter(l => l.id <= 4).every(l => l.quake.type === 'sway') && LEVELS.every(l => l.quake.type === (l.qtype ? (Array.isArray(l.qtype) ? 'mix' : l.qtype) : 'sway')), 'the first jobs are a plain sway; every job gets the quake type it asks for');
 // the plain sway is exactly the original formula
 {
   const w = 2 * Math.PI * q.f; let same = true;

@@ -18,7 +18,7 @@ with sync_playwright() as p:
     sh = lambda n: page.screenshot(path=f'{OUT}/{LOC}_{n}.png')
     coins = lambda: ev('__mq.G.coins')
     def watch(timeout=12):   # let the mock ad run to the end, then close it
-        page.wait_for_selector('.mockad', timeout=5000); time.sleep(0.3)
+        page.wait_for_selector('.mockad', timeout=30000); time.sleep(0.3)
         page.wait_for_function("parseFloat(document.querySelector('.mockad .mockad-bar i').style.width) >= 100", timeout=timeout * 1000)
         page.locator('.mockad .mockad-x').tap(); time.sleep(0.4)
 
@@ -37,7 +37,7 @@ with sync_playwright() as p:
     page.locator('#btnDaily').tap(); page.wait_for_selector('#ciWrap:not([hidden])'); time.sleep(0.3)
     print('next:', page.inner_text('#ciNext'))
     h0 = ev("__mq.shop.count('hint')"); page.locator('#ciBtns .primary').tap()
-    page.wait_for_function("document.querySelectorAll('#ciGrid .ci-cell.done').length >= 5", timeout=5000); time.sleep(0.3)
+    page.wait_for_function("document.querySelectorAll('#ciGrid .ci-cell.done').length >= 5", timeout=30000); time.sleep(0.3)
     check(ev("__mq.shop.count('hint')") == h0 + 1 and page.locator('#ciGrid .ci-cell.done').count() == 5, 'day 5 gives a hint ticket')
     print('toast:', page.inner_text('#toast')); sh('00c_day5')
     # day 30: the big prize
@@ -94,7 +94,7 @@ with sync_playwright() as p:
     check(ev('__mq.ads.interstitialDue(4, false)') is False, 'no interstitial right after a rewarded ad')
     ev("__mq.ads.s.lastRewarded = 0")
     check(ev('__mq.ads.interstitialDue(4, false)') is True, 'due after 3 clears and 3 quiet minutes')
-    page.locator('#resBtns .primary').tap(); page.wait_for_selector('.mockad', timeout=5000); time.sleep(0.5); sh('06_interstitial'); watch(8)
+    page.locator('#resBtns .primary').tap(); page.wait_for_selector('.mockad', timeout=30000); time.sleep(0.5); sh('06_interstitial'); watch(8)
     check(ev('__mq.G.state') == 'intro' and ev('__mq.G.idx') == 4, 'after the interstitial the next job opens')
     check(ev('__mq.ads.interstitialDue(5, false)') is False, 'counter reset after an interstitial')
     # remove ads

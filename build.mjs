@@ -8,7 +8,7 @@ const glb = n => fs.readFileSync(`assets/${n}.glb`).toString('base64');
 // Q-version landmark models from blender/make_landmarks.py (assets/landmarks/<level key>.glb), shown after a clear
 const lmDir = process.env.LM_DIR || 'assets/landmarks';
 const lms = fs.existsSync(lmDir) ? fs.readdirSync(lmDir).filter(f => f.endsWith('.glb')).sort() : [];
-// 完整版 content from job 14 on stays on this Mac only, in private/ (git-ignored): levels_private.js and landmarks/*.glb
+// 完整版 content (jobs 11–100 except 40) stays on this Mac only, in private/ (git-ignored): levels_private.js and landmarks/*.glb
 const PRIV = 'private', privLm = `${PRIV}/landmarks`, hasPrivate = fs.existsSync(`${PRIV}/levels_private.js`);
 const plms = fs.existsSync(privLm) ? fs.readdirSync(privLm).filter(f => f.endsWith('.glb')).sort() : [];
 const lmJs = [...lms.map(f => [lmDir, f]), ...plms.map(f => [privLm, f])]

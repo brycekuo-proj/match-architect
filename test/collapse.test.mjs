@@ -1,12 +1,13 @@
 // After a failure the building must come down and burn: most glue lets go, most matches burn, the structure ends up low.
 import { LEVELS, Design, Sim, L } from '../src/sim.js';
 import { REFERENCE, LatticeBuilder } from '../src/designs.js';
-const lv = id => LEVELS.find(l => l.id === id);
+import { OLD_BURJ, OLD_SAGRADA, sagradaRef } from './oldjobs.mjs';
+const lv = id => id === 12 ? OLD_BURJ : id === 13 ? OLD_SAGRADA : LEVELS.find(l => l.id === id);
 const cases = {
   'L2 unbraced square': [2, d => { const s = (a, b, c, e) => d.addSegment(a * L, b * L, c * L, e * L); s(0, 0, 1, 0); s(0, 0, 0, 1); s(1, 0, 1, 1); s(0, 1, 1, 1); s(1, 1, 2, 1); }],
   'L8 narrow Tokyo tower': [8, d => { const b = new LatticeBuilder(d); b.node(0.5, 1, [0, 0], [1, 0]); b.column([0, 0], [1, 0], 2, 6); }],
   'L10 narrow 101 tower': [10, d => { const b = new LatticeBuilder(d); b.pyramid(1, 4, 2); b.column([2, 2], [3, 2], 3, 8); }],
-  'L13 Sagrada ref at 震度7x2': [13, d => REFERENCE[13](d), { A: 0.4, f: 1.6 }],
+  'L13 Sagrada ref at 震度7x2': [13, d => sagradaRef(LatticeBuilder)(d), { A: 0.4, f: 1.6 }],
   'L12 short-base Burj': [12, d => { const b = new LatticeBuilder(d); b.pyramid(0, 8, 4); b.column([3, 4], [4, 4], 4, 10); }],
 };
 let bad = 0;

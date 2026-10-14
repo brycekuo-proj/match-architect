@@ -15,7 +15,7 @@ with sync_playwright() as p:
     page.add_init_script("if (!sessionStorage.getItem('i')) { localStorage.clear(); localStorage.setItem('mq2_coins', '500'); localStorage.setItem('mq_guide_off', 'true'); localStorage.setItem('mq2_progress', JSON.stringify({unlocked: 10, stars: {1: 3}, best: {}})); sessionStorage.setItem('i', 1); }")
     ev = lambda js: page.evaluate(js)
     page.goto('file:///home/claude/mq/dist/itch/index.html'); page.wait_for_selector('#ovTitle:not([hidden])', timeout=30000); time.sleep(0.6)
-    check(ev("__mq.LEVELS.every(l => l.quake.type === 'sway')"), 'every job is a plain sway by default')
+    check(ev("__mq.LEVELS.filter(l => l.id <= 4).every(l => l.quake.type === 'sway') && __mq.LEVELS.find(l => l.id === 10).quake.type === 'long'"), 'the first jobs are a plain sway; Taipei 101 is long-period')
     for qt in ['sway', 'jolt', 'long', 'after', 'ps', 'pulse']:
         ev(f"__mq.setQuakeType('{qt}')")
         page.evaluate("document.getElementById('btnMenu').click()") if page.is_visible('#hud') else page.click('#btnLevels')

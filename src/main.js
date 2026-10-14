@@ -67,7 +67,8 @@ function paintZoom() {
 const QUAKE_OVERRIDE = (() => { try { const q = new URLSearchParams(location.search).get('quake'); return QTYPES.includes(q) ? q : null; } catch (e) { return null; } })();
 function setQuakeType(type) { if (QTYPES.includes(type)) for (const lv of LEVELS) lv.quake = { ...lv.quake, type }; }
 if (QUAKE_OVERRIDE) setQuakeType(QUAKE_OVERRIDE);
-const qtName = lv => t('qt.' + (lv.quake.type || 'sway'));
+const qtName = lv => lv.quake.type === 'mix' ? t('qt.mix', { list: lv.quake.mix.map(ty => t('qt.' + ty)).join('→') }) : t('qt.' + (lv.quake.type || 'sway'));
+const qtShort = lv => lv.quake.type === 'mix' ? t('qt.mixShort') : t('qt.' + (lv.quake.type || 'sway'));
 // quake-type moments: a stamp under the quake bar
 // (timed in quake time, so a slow phone or a recording sees it for as long as the quake does)
 function qBanner(msg, cls = '', ms = 1500) {
@@ -78,6 +79,7 @@ function qBanner(msg, cls = '', ms = 1500) {
 function hideBanner() { qBanner.until = 0; $('qBanner').hidden = true; }
 function qPhase(ev) {
   if (ev.phase === 'pwave') qBanner(t('qb.pwave'), 'calm', 1800);
+  if (ev.phase === 'next') { qBanner(t('qb.next', { type: t('qt.' + ev.quake) })); view.kick(0.2); }
   if (ev.phase === 'calm') qBanner(t('qb.calm'), 'calm', 1100);
   if (ev.phase === 'aftershock') { qBanner(t('qb.aftershock')); view.kick(0.3); for (const s of ev.scars || []) view.fxYield(s.x, s.y); }
   if (ev.phase === 'swave') { qBanner(t('qb.swave')); view.kick(0.35); }
@@ -180,7 +182,13 @@ function titleDemo() {
 function levelsScreen() {
   G.state = 'levels';
   const grid = $('levelGrid'); grid.innerHTML = '';
+  let open = null;
   LEVELS.forEach((lv, i) => {
+    if (LEVELS.length > 10 && lv.id % 10 === 1) {
+      const ch = (lv.id - 1) / 10 + 1, h = document.createElement('div');
+      h.className = 'lvchap'; h.textContent = t('ch.title', { n: ch, name: t('ch.' + ch) });
+      grid.appendChild(h);
+    }
     const locked = i + 1 > G.progress.unlocked;
     const stars = G.progress.stars[lv.id] || 0, best = G.progress.best[lv.id];
     const b = document.createElement('button');
@@ -194,7 +202,9 @@ function levelsScreen() {
       <span class="lvstars" aria-label="${t('lv.starsA', { n: stars })}">${locked ? t('lv.locked') : starStr(stars)}</span>`;
     b.onclick = () => { audio.click(); startLevel(i); };
     grid.appendChild(b);
+    if (!locked) open = b;
   });
+  if (open && LEVELS.length > 10) requestAnimationFrame(() => { try { open.scrollIntoView({ block: 'center' }); } catch (e) {} });
   // web edition: the later jobs are in the full version
   TEASERS.forEach((tz, k) => {
     const b = document.createElement('button');
@@ -223,7 +233,7 @@ function startLevel(i, restored) {
   const S = sh(lv.shindo);
   $('lvTitle').textContent = `${lv.id}　${lvt(lv, 'name')}`;
   $('shindoChip').textContent = t('shindo', { s: S });
-  $('qShindo').textContent = t('shindo', { s: S }) + (lv.quake.type && lv.quake.type !== 'sway' ? t('qt.sep') + qtName(lv) : '');
+  $('qShindo').textContent = t('shindo', { s: S }) + (lv.quake.type && lv.quake.type !== 'sway' ? t('qt.sep') + qtShort(lv) : '');
   const no = String(lv.id).padStart(3, '0');
   $('orderNo').textContent = no; $('resNo').textContent = no;
   $('orderStamp').textContent = t('shindo', { s: S });
@@ -233,10 +243,14 @@ function startLevel(i, restored) {
   $('introReal').textContent = lv.real ? t('order.real', { r: lvt(lv, 'real') }) : '';
   $('introQType').textContent = qtName(lv);
   $('introQDesc').textContent = t('qt.' + (lv.quake.type || 'sway') + '.d');
+  const sup = lv.supply ? Object.keys(lv.supply).filter(k => k !== 'pick').map(id => t('nm.' + id) + (lv.supply[id] > 1 ? ' ×' + lv.supply[id] : '')).join(LANG === 'en' ? ', ' : '、') : '';
   const li = (ul, items) => { const e = $(ul); e.innerHTML = ''; for (const h of items) { const x = document.createElement('li'); x.innerHTML = h; e.appendChild(x); } };
   li('orderReq', [
     lv.stars.length > 1 ? t('req.stars', { n: lv.stars.length }) : t('req.star'),
     lv.quake.type && lv.quake.type !== 'sway' ? t('req.quakeType', { s: S, type: qtName(lv) }) : t('req.quake', { s: S }),
+    ...(lv.loads || []).map(ld => t('req.load', { what: t('ld.' + ld.kind), kg: ld.kg })),
+    ...(lv.soft && lv.soft.length ? [t('req.soft')] : []),
+    ...(sup ? [lv.supply.pick ? t('req.supplyPick', { list: sup, n: lv.supply.pick }) : t('req.supply', { list: sup })] : []),
     t('req.quota', { budget: lv.budget, cost: MATCH_COST }),
   ]);
   li('orderReward', [
@@ -324,17 +338,19 @@ function startQuake() {
   const cs = canStart();
   if (!cs.ok) { audio.deny(); toast(cs.reason); $('matchBox').classList.remove('shakeit'); void $('matchBox').offsetWidth; $('matchBox').classList.add('shakeit'); return; }
   const ld = G.load, need = supplyNeed(ld);
-  const short = Object.keys(need).filter(id => need[id] > shop.count(id));
+  const short = Object.keys(need).filter(id => need[id] > avail(id));
   if (short.length) {
     audio.deny();
-    ask(t('load.short', { list: short.map(id => t('load.need', { name: t('nm.' + id), need: need[id], have: shop.count(id) })).join(LANG === 'en' ? '; ' : '；') }), [
+    ask(t('load.short', { list: short.map(id => t('load.need', { name: t('nm.' + id), need: need[id], have: avail(id) })).join(LANG === 'en' ? '; ' : '；') }), [
       { label: t('load.drop'), cls: 'primary', fn: () => { dropItems(short); itemsChanged(); startQuake(); } },
       { label: t('btn.cancel'), cls: 'ghost' }]);
     return;
   }
-  for (const id in need) shop.take(id, need[id]);
-  G.spent = need;
+  const spent = {};
+  for (const id in need) { spent[id] = Math.max(0, need[id] - supplied(id)); if (spent[id]) shop.take(id, spent[id]); }
+  G.spent = spent;
   G.runItems = activeItems(ld);
+  G.boughtItems = Object.keys(spent).filter(id => spent[id]);   // free supplied items still let the run onto the leaderboard
   const used = Object.keys(need).filter(id => need[id]);
   if (used.length) toast(t('toast.used', { list: used.map(id => t('nm.' + id) + (need[id] > 1 ? ' ×' + need[id] : '')).join(LANG === 'en' ? ', ' : '、') }), 1600);
   setTool('match'); hideScan();
@@ -483,9 +499,9 @@ function showResult(won, reason) {
     mk(t('btn.tearDown'), 'ghost', () => { stopQuake(); pushUndo(); G.design.clear(); refresh(); });
     mk(t('btn.fix'), 'primary', () => stopQuake());
   }
-  renderResultBoard(won, lv, used, items.length > 0);
+  renderResultBoard(won, lv, used, (G.boughtItems || items).length > 0);
   G.state = 'result';
-  if (won && hasLandmark(lv.key)) showReveal(lv);
+  if (won && hasLandmark(lv.model || lv.key)) showReveal(lv);
   else show('ovResult');
   $('toolbar').hidden = true;
 }
@@ -497,7 +513,7 @@ function showReveal(lv, mode = 'result') {
   $('revealWhere').textContent = [lvt(lv, 'place') || t('reveal.studio'), lv.real ? t('order.real', { r: lvt(lv, 'real') }) : ''].filter(Boolean).join('　');
   show('ovReveal');
   try { turntable = turntable || new Turntable($('revealCanvas')); } catch (e) { console.error(e); show('ovResult'); return; }
-  turntable.show(lv.key).then(ok => { if (!ok && G.state === 'result') show('ovResult'); });
+  turntable.show(lv.model || lv.key).then(ok => { if (!ok && G.state === 'result') show('ovResult'); });
   if (mode === 'result') audio.cheer();
 }
 function closeReveal() { if (turntable) turntable.stop(); if (G.revealMode === 'collect') collectScreen(); else show('ovResult'); }
@@ -599,6 +615,16 @@ function closeShop() { G.peek = null; applyLook(); titleScreen(); }
 
 // ---------------------------------------------------------------- 防震道具: what is fitted to the current job
 const emptyLoad = () => ({ steel: false, iso: false, wraps: [], struts: [], damper: null });
+// 業主提供: some jobs come with items. They are free on that job (used before your own stock); with supply.pick set,
+// only that many different supplied kinds are free.
+const fittedKind = id => { const ld = G.load; return id === 'damper' ? ld.damper !== null : id === 'iso' ? !!ld.iso : id === 'steel' ? !!ld.steel : id === 'cfrp' ? ld.wraps.length > 0 : id === 'spring' ? ld.struts.length > 0 : false; };
+function supplied(id) {
+  const lv = LEVELS[G.idx], sup = lv && lv.supply; if (!sup || !sup[id] || id === 'pick') return 0;
+  if (!sup.pick) return sup[id];
+  const kinds = Object.keys(sup).filter(k => k !== 'pick' && fittedKind(k));
+  return kinds.includes(id) || kinds.length < sup.pick ? sup[id] : 0;
+}
+const avail = id => shop.count(id) + supplied(id);
 G.load = emptyLoad();
 function loadFor(lv) { const s = store.get('mq2_load_' + lv.id, null); return { ...emptyLoad(), ...(s && typeof s === 'object' ? s : {}) }; }
 function saveLoad() { if (G.design && LEVELS[G.idx]) store.set('mq2_load_' + LEVELS[G.idx].id, G.load); }
@@ -615,8 +641,8 @@ function dropItems(ids) {
   const ld = G.load;
   for (const id of ids) {
     if (id === 'steel') ld.steel = false; else if (id === 'iso') ld.iso = false; else if (id === 'damper') ld.damper = null;
-    else if (id === 'cfrp') ld.wraps.length = Math.min(ld.wraps.length, shop.count('cfrp'));
-    else if (id === 'spring') ld.struts.length = Math.min(ld.struts.length, shop.count('spring'));
+    else if (id === 'cfrp') ld.wraps.length = Math.min(ld.wraps.length, avail('cfrp'));
+    else if (id === 'spring') ld.struts.length = Math.min(ld.struts.length, avail('spring'));
   }
 }
 function itemsChanged() {
@@ -645,11 +671,13 @@ function paintTray() {
   const ld = G.load, need = supplyNeed(ld), lv = LEVELS[G.idx];
   const on = { damper: ld.damper !== null, iso: ld.iso, spring: ld.struts.length > 0, cfrp: ld.wraps.length > 0, steel: ld.steel, scanner: !!(scan && scan.on), hint: !!(hint && hint.on) };
   for (const b of tray.children) {
-    const id = b.dataset.id, n = shop.count(id), unlocked = id === 'hint' && lv && shop.hinted(lv.id);
+    const id = b.dataset.id, n = avail(id), unlocked = id === 'hint' && lv && shop.hinted(lv.id);
     b.classList.toggle('on', !!on[id]);
     b.classList.toggle('placing', G.tool === TRAY_MODE[id]);
     b.classList.toggle('empty', !n && !on[id] && !unlocked);
     b.classList.toggle('short', (need[id] || 0) > n);
+    const gift = lv && lv.supply && lv.supply[id] && id !== 'pick';
+    b.classList.toggle('gift', !!gift); if (gift) b.dataset.gift = t('tray.gift');
     b.querySelector('.cnt').textContent = unlocked && !n ? '✓' : String(n);
     const name = id === 'cfrp' ? t('it.cfrp.name') : t('item.' + id);
     b.setAttribute('aria-label', `${name}, ${t('shop.stock', { n })}`); b.title = name;
@@ -658,7 +686,7 @@ function paintTray() {
 }
 function slotTap(id) {
   if (G.state !== 'build') return;
-  const ld = G.load, n = shop.count(id);
+  const ld = G.load, n = avail(id);
   const mode = TRAY_MODE[id];
   if (mode) {
     if (G.tool === mode) { audio.click(); setTool('match'); return; }
@@ -685,8 +713,8 @@ function paintPlace() {
   const bar = $('placeBar'), tool = G.tool, ld = G.load;
   bar.hidden = !PLACING[tool] || G.state !== 'build';
   if (bar.hidden) return;
-  $('placeText').textContent = tool === 'cfrp' ? t('place.cfrp', { k: ld.wraps.length, n: shop.count('cfrp') })
-    : tool === 'strut' ? (G.strutA !== null && G.strutA !== undefined ? t('place.strutB') : t('place.strutA', { k: ld.struts.length, n: shop.count('spring') }))
+  $('placeText').textContent = tool === 'cfrp' ? t('place.cfrp', { k: ld.wraps.length, n: avail('cfrp') })
+    : tool === 'strut' ? (G.strutA !== null && G.strutA !== undefined ? t('place.strutB') : t('place.strutA', { k: ld.struts.length, n: avail('spring') }))
       : t('place.damper');
 }
 function hitNode(w, r) {
@@ -712,14 +740,14 @@ function placeTap(w, r) {
     const h = d.hitStick(w.x, w.y, r); if (!h) return false;
     const i = ld.wraps.indexOf(h.id);
     if (i >= 0) { ld.wraps.splice(i, 1); audio.remove(); }
-    else if (ld.wraps.length >= shop.count('cfrp')) { outOf('cfrp'); return true; }
+    else if (ld.wraps.length >= avail('cfrp')) { outOf('cfrp'); return true; }
     else { ld.wraps.push(h.id); audio.place(); }
     itemsChanged(); return true;
   }
   if (G.tool === 'damper') {
     const n = hitNode(w, r); if (!n) return false;
     if (n.kind === 'anchor') { audio.deny(); toast(t('place.damperAnchor')); return true; }
-    if (ld.damper === null && !shop.count('damper')) { outOf('damper'); return true; }
+    if (ld.damper === null && !avail('damper')) { outOf('damper'); return true; }
     ld.damper = ld.damper === n.id ? null : n.id;
     if (ld.damper === null) audio.remove(); else audio.place();
     itemsChanged(); return true;
@@ -733,7 +761,7 @@ function placeTap(w, r) {
         ld.struts.splice(k, 1); audio.remove(); itemsChanged(); return true;
       }
       if (ld.struts.length >= MAX_STRUTS) { audio.deny(); toast(t('place.strutMax', { n: MAX_STRUTS })); return true; }
-      if (ld.struts.length >= shop.count('spring')) { outOf('spring'); return true; }
+      if (ld.struts.length >= avail('spring')) { outOf('spring'); return true; }
       G.strutA = n.id; view.setPick(n.id); audio.click(); paintPlace(); return true;
     }
     if (!n) return false;
@@ -786,17 +814,23 @@ function collectScreen() {
   G.state = 'collect';
   show('ovCollect');
   const grid = $('colGrid'); grid.innerHTML = '';
-  const have = LEVELS.filter(lv => G.progress.stars[lv.id] && hasLandmark(lv.key));
-  $('colCount').textContent = t('col.count', { n: have.length, of: LEVELS.length });
-  const todo = [];
+  // one shelf per model: a revisited landmark (第 10 章) shares its model with the first visit and opens it too
+  const shelf = [], seen = new Map();
   for (const lv of LEVELS) {
-    const open = !!G.progress.stars[lv.id] && hasLandmark(lv.key);
+    const m = lv.model || lv.key, cleared = !!G.progress.stars[lv.id];
+    if (!seen.has(m)) { seen.set(m, shelf.length); shelf.push({ lv, cleared }); } else if (cleared) shelf[seen.get(m)].cleared = true;
+  }
+  const have = shelf.filter(x => x.cleared && hasLandmark(x.lv.model || x.lv.key));
+  $('colCount').textContent = t('col.count', { n: have.length, of: shelf.length });
+  const todo = [];
+  for (const { lv, cleared } of shelf) {
+    const open = cleared && hasLandmark(lv.model || lv.key);
     const b = document.createElement('button');
     b.className = 'colitem' + (open ? '' : ' locked'); b.disabled = !open;
     b.innerHTML = `${open ? '<img alt="">' : '<span class="ph">?</span>'}<b>${open ? lvt(lv, 'name') : '？？？'}</b><small>${open ? (lvt(lv, 'place') || t('reveal.studio')) : t('col.locked', { n: lv.id })}</small>`;
     if (open) {
       const img = b.querySelector('img'); img.alt = lvt(lv, 'name');
-      if (thumbs.has(lv.key)) img.src = thumbs.get(lv.key); else todo.push([lv.key, img]);
+      if (thumbs.has(lv.model || lv.key)) img.src = thumbs.get(lv.model || lv.key); else todo.push([lv.model || lv.key, img]);
       b.onclick = () => { audio.click(); G.state = 'collect'; showReveal(lv, 'collect'); };
     }
     grid.appendChild(b);
