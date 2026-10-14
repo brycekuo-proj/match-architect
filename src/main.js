@@ -29,6 +29,9 @@ G.progress.best = G.progress.best || {};
 const START_COINS = 30, FLOOR_COINS = 10, MATCH_COST = 1, REFUND = 2;
 const ZOOM_STEP = 1.3;   // one tap of + / − on the zoom buttons
 G.coins = store.get('mq2_coins', START_COINS);
+// 完整版試玩檔 (dist/app/preview.html, built with __MQ_PREVIEW__): every job open and plenty of coins, to try any job
+const PREVIEW = typeof __MQ_PREVIEW__ !== 'undefined' && __MQ_PREVIEW__;
+if (PREVIEW) { G.progress.unlocked = Math.max(G.progress.unlocked || 1, 999); G.coins = Math.max(G.coins, 5000); }
 G.earned = Math.max(store.get('mq2_earned', 0), G.coins);   // lifetime coins earned (the coin leaderboard), spending doesn't lower it
 const earn = n => { G.earned += Math.max(0, n); store.set('mq2_earned', G.earned); };
 const shop = new Shop(store);

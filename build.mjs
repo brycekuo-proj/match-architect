@@ -55,4 +55,7 @@ const privateEdition = { name: 'private-edition', setup(b) {
 const c = await build({ entryPoints: ['src/entry.js'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020', plugins: [privateEdition] });
 fs.mkdirSync('dist/app', { recursive: true });
 fs.writeFileSync('dist/app/index.html', `${head}${pre}</head>\n<body>\n<div id="app">${tpl.replace('<!--IMPORTMAP-->', '').replace('<!--APP-->', () => `<script>${esc(c.outputFiles[0].text)}</script>`).split('<div id="app">')[1]}</body>\n</html>\n`);
-for (const f of ['dist/match-architect.html', 'dist/itch/index.html', 'dist/app/index.html']) console.log(f, (fs.statSync(f).size / 1024).toFixed(0) + ' KB');
+// 4) full-edition preview for the author: the same, with every job open and plenty of coins (dist/app/ is git-ignored)
+const pv = await build({ entryPoints: ['src/entry.js'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020', plugins: [privateEdition], define: { __MQ_PREVIEW__: 'true' } });
+fs.writeFileSync('dist/app/preview.html', `${head}${pre}</head>\n<body>\n<div id="app">${tpl.replace('<!--IMPORTMAP-->', '').replace('<!--APP-->', () => `<script>${esc(pv.outputFiles[0].text)}</script>`).split('<div id="app">')[1]}</body>\n</html>\n`);
+for (const f of ['dist/match-architect.html', 'dist/itch/index.html', 'dist/app/index.html', 'dist/app/preview.html']) console.log(f, (fs.statSync(f).size / 1024).toFixed(0) + ' KB');
