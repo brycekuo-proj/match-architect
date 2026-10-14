@@ -11,7 +11,7 @@ import { Shop } from './shop.js';
 import { ICONS } from './icons.js';
 import { Ads, setAdText, REMOVE_ADS_PRICE } from './ads.js';
 import { CheckIn, ROUND, DAILY_COINS, MAKEUP_MAX } from './checkin.js';
-import { TEASERS, WEB_EDITION } from './levels_full.js';   // web builds get levels_web.js: jobs 11+ are locked teasers
+import { TEASERS, WEB_EDITION } from './levels_full.js';   // web builds get levels_web.js: jobs 1–10 only (TEASERS: optional locked cards)
 
 const $ = id => document.getElementById(id);
 const audio = new Audio();

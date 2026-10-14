@@ -64,7 +64,7 @@
 - App 端怎麼接 AdMob 和內購：[docs/APP_ADS.md](docs/APP_ADS.md)。
 
 ## 關卡
-網頁版（GitHub Pages、itch.io、jam、Claude 分享連結）有第 1 章的 10 關：3 個教學關＋7 座世界名建築（獅身人面像到台北 101，震度 3 → 6 強），後半段先預告幾種新地震：金字塔是直下型、艾菲爾鐵塔是 P波→S波、東京鐵塔是餘震、台北 101 是長週期（業主送一顆阻尼球）。完整版（之後的 App）有 **100 關，10 章 × 10 關**，每章教一件新東西、章末是一座名建築；網頁版的委託清單裡用三張鎖住的「完整版」卡片預告（第 40 關晴空塔、第 99 關杜拜塔、第 100 關聖家堂）。完整版的委託清單會分章顯示。100 關企劃見 [docs/LEVEL_PLAN.md](docs/LEVEL_PLAN.md)。
+網頁版（GitHub Pages、itch.io、jam、Claude 分享連結）有第 1 章的 10 關：3 個教學關＋7 座世界名建築（獅身人面像到台北 101，震度 3 → 6 強），後半段先預告幾種新地震：金字塔是直下型、艾菲爾鐵塔是 P波→S波、東京鐵塔是餘震、台北 101 是長週期（業主送一顆阻尼球）。完整版（之後的 App）有 **100 關，10 章 × 10 關**，每章教一件新東西、章末是一座名建築；網頁版的委託清單只有這 10 關，不顯示完整版的關卡。完整版的委託清單會分章顯示。100 關企劃見 [docs/LEVEL_PLAN.md](docs/LEVEL_PLAN.md)。
 
 ### 地震類型
 每關除了震度，還有一種地震類型（委託單上的「地震類型」），規則寫在 `src/sim.js` 的 `QT`：
@@ -123,7 +123,7 @@ python3 test/ads.py    # 廣告（假廣告模式）與移除廣告
 | `play.html` | 遊戲本體（單一檔案、可離線；也可以打包上傳 itch.io） |
 | `src/sim.js` | 關卡資料（1–10）、建造規則、物理模擬 |
 | `src/levels_full.js` | 完整版才有的關卡（11 以後）、參考解與模型清單 |
-| `src/levels_web.js` | 網頁版用的替身：只列出鎖住的完整版關卡 |
+| `src/levels_web.js` | 網頁版用的替身：沒有完整版的關卡 |
 | `src/designs.js` | 每關參考解（三星目標） |
 | `src/render3d.js` | Three.js 畫面 |
 | `src/main.js` | 操作、流程、介面 |
@@ -139,7 +139,7 @@ python3 test/ads.py    # 廣告（假廣告模式）與移除廣告
 | `src/template.html` | 遊戲頁面與樣式 |
 | `blender/` | 火柴、Q 版建築模型與封面的 Blender 腳本 |
 | `assets/landmarks/` | 13 個 Q 版建築模型（GLB，建置時嵌入遊戲） |
-| `docs/LEVEL_PLAN.md` | 50 關企劃 |
+| `docs/LEVEL_PLAN.md` | 100 關企劃與實作結果 |
 | `docs/APP_ADS.md` | App 版接 AdMob 與移除廣告內購 |
 | `docs/itch/` | itch.io 報名素材：英文頁面文字、封面、截圖 |
 
