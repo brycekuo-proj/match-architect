@@ -6,7 +6,7 @@ import { Audio } from './audio.js';
 import { Leaderboard } from './leaderboard.js';
 import { Turntable, hasLandmark } from './turntable.js';
 import { t, sh, lvt, LANG, setLang, applyStatic } from './i18n.js';
-import { Coach, HintLayer, ScanLayer } from './coach.js';
+import { Coach, HintLayer, ScanLayer, GUIDES } from './coach.js';
 import { Shop } from './shop.js';
 import { ICONS } from './icons.js';
 import { Ads, setAdText, REMOVE_ADS_PRICE } from './ads.js';
@@ -268,6 +268,8 @@ function startLevel(i, restored) {
   $('howto').open = false; $('howto').hidden = G.guide;
   $('orderRewardBox').hidden = G.guide && i === 0;
   $('btnIntroGo').textContent = t(G.guide ? 'order.goTutorial' : 'order.go');
+  // the tutorial jobs, once cleared (or the tutorial skipped): the tutorial can still be watched again
+  $('btnIntroTutorial').hidden = G.guide || !coach || !GUIDES[lv.id];
   const best = G.progress.best[lv.id];
   $('introBest').textContent = best ? t('order.best', { n: best }) : '';
   $('introBest').hidden = !best;
@@ -1107,6 +1109,10 @@ function bindUI() {
     audio.click(); uploadScore(name);
   });
   on('btnIntroGo', () => { audio.click(); beginBuild(); });
+  on('btnIntroTutorial', () => {   // replay the tutorial on an empty site (the skip setting stays as it is)
+    audio.click(); G.design.clear(); G.undo = []; G.guide = coach.start(LEVELS[G.idx].id);
+    beginBuild(); refresh(true);
+  });
   on('btnMenu', () => { audio.click(); if (G.state === 'sim' || G.state === 'result') stopQuake(); setTool('match'); hideScan(); levelsScreen(); });
   on('btnHelp', () => { audio.click(); if (G.state === 'build') { setTool('match'); G.state = 'intro'; show('ovIntro'); } });
   on('toolMatch', () => { if (G.state === 'build') { audio.click(); setTool('match'); } });

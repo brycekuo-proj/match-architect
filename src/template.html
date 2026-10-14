@@ -606,7 +606,7 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
   <div id="placeBar" class="topbar" role="status" hidden><span id="placeText"></span><button class="btn primary" id="btnPlaceDone" data-t="place.done">完成</button></div>
   <div id="scanBar" class="topbar" role="status" hidden><span id="scanText"></span><button class="btn ghost" id="btnScanClose" data-t="scan.close">關閉</button></div>
   <div id="coach" aria-hidden="true" hidden></div>
-  <div id="coachTip" role="status" aria-live="polite" hidden><span class="cstep"></span><span class="ctext"></span><button class="cskip" id="btnSkipCoach" data-t="g.skip">跳過教學</button></div>
+  <div id="coachTip" role="status" aria-live="polite" hidden><span class="cstep"></span><span class="ctext"></span><button class="cskip" id="btnSkipCoach" data-t="g.skip">跳過示範</button></div>
 
   <div id="quake" hidden>
     <span class="qlabel" id="qShindo">震度 3</span>
@@ -697,7 +697,7 @@ ol.board .n { font: 400 15px/1 var(--font-num); font-variant-numeric: tabular-nu
       <p class="best" id="introBest" hidden></p>
       <p class="hint"><b data-t="order.tip">工頭提示</b><span id="introHint"></span></p>
       <details class="howto" id="howto"><summary data-t="order.howto">怎麼搭火柴</summary><p data-t="order.howtoText">從紅色錨點或火柴端點按住拖曳，放開就放下一支火柴；在火柴中段按住可以黏斜撐。單指拖空白處移動畫面；兩指捏合或右邊的 ＋／－ 可以縮放（電腦也能用滾輪）。</p></details>
-      <div class="btnrow"><button class="btn primary" id="btnIntroGo" data-t="order.go">接下委託</button></div>
+      <div class="btnrow"><button class="btn ghost" id="btnIntroTutorial" data-t="order.replayTutorial" hidden>玩法示範</button><button class="btn primary" id="btnIntroGo" data-t="order.go">接下委託</button></div>
     </div>
   </section>
 
