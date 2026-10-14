@@ -1189,4 +1189,7 @@ def main():
     print('DONE errors=%d' % errors)
 
 
-main()
+# run only when Blender starts this file (-P make_landmarks.py); another script can `import make_landmarks` and reuse
+# the helpers (materials, textures, loft/box/cyl/…, reset, finish, glb_info, render_preview) for its own models
+if __name__ == '__main__':
+    main()
