@@ -10,3 +10,4 @@ _obsolete/
 dist/app/
 src/assets_web.js
 private/
+__pycache__/
