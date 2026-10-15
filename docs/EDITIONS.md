@@ -12,7 +12,7 @@
 
 - 網頁版建置時把 `src/levels_full.js` 換成 `src/levels_web.js`，檔案裡沒有第 11 關以後的任何東西。其他版本會帶入 `private/` 的關卡和模型，所以 `dist/app/`、`dist/steam/`、`dist/ios/`、`android/app/src/main/assets/`、`steam/app/`、`steam/release/` 都在 `.gitignore`，不會上 GitHub。
 - 標題畫面：網頁版寫「AI Browser Game Jam 5 參賽作品」，其他版本改成作者署名（`title.credit`）。
-- 金幣、商店道具、外觀在所有版本都一樣，都用遊戲裡賺的金幣買；真錢只有手機版的「移除廣告」。
+- 金幣、商店道具、外觀在所有版本都一樣（Steam 版也不另外調價），都用遊戲裡賺的金幣買；真錢只有手機版的「移除廣告」。
 
 ## Steam 版（`steam/`）
 Electron 視窗載入 `dist/steam/index.html`。
@@ -27,13 +27,13 @@ cd steam && npm start       # 直接開來玩
 - F11 或 Alt+Enter 切換全螢幕；存檔（localStorage）在 Electron 的使用者資料夾，換電腦不會跟著走（之後可接 Steam Cloud）。
 - 上架前：Steamworks 開發者帳號（每款遊戲 US$100 上架費）、App ID、商店頁素材、用 SteamPipe（steamcmd）上傳 depot。Windows 版最好在 Windows 電腦或 CI 打包並簽章。
 
-## 排行榜：各平台獨立
-每個平台用自己的排行榜服務，不自己架伺服器：玩家不用另外登入，也不用處理跨平台作弊和帳號。遊戲端已經有 `src/leaderboard.js` 的介面（`ranking(levelKey)`、`coinRanking()`、`submit`），每個平台各寫一個轉接器。
+## 排行榜：各平台獨立（先不做）
+目前還沒接平台排行榜，等開發者帳號開好再決定怎麼排。方向是：每個平台用自己的排行榜服務，不自己架伺服器：玩家不用另外登入，也不用處理跨平台作弊和帳號。遊戲端已經有 `src/leaderboard.js` 的介面（`ranking(levelKey)`、`coinRanking()`、`submit`），每個平台各寫一個轉接器。
 
-| 平台 | 服務 | 上限 | 打算的排法 |
+| 平台 | 服務 | 上限 | 可能的排法 |
 |---|---|---|---|
 | Steam | Steamworks Leaderboards（`FindOrCreateLeaderboard`，遞增排序） | 每款遊戲 10,000 個 | 每關一個（100 個，火柴數越少越前面）＋金幣總榜 |
-| Google Play | Play 遊戲服務 v2 | 每款遊戲 **70 個** | 放不下 100 關：每章一個（10 個，分數＝該章 10 關火柴數總和，10 關都過才上榜）＋金幣總榜 |
+| Google Play | Play 遊戲服務 v2 | 每款遊戲 **70 個** | 放不下每關一個，到時再決定（例如每章一個＋金幣總榜） |
 | App Store | Game Center | 100 個，用排行榜組（sets）可到 500 | 每章一組、組裡每關一個 |
 | 網頁版 | Claude artifact 共用資料庫 | — | 現有做法：每關一個＋金幣總榜 |
 
