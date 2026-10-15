@@ -1,9 +1,11 @@
 // Ads and the remove-ads purchase. Three modes:
 //   'off'   web / itch / jam builds: no ads at all (the default)
 //   'mock'  ?ads=mock in the URL (remembered): fake ads on screen, for trying the flow before the app exists
-//   'admob' the Capacitor app with @capacitor-community/admob installed (see docs/APP_ADS.md)
+//   'admob' the Android app (android/: a WebView that hands over window.MQAndroidAds, the Google Mobile Ads SDK) or a
+//           Capacitor app with @capacitor-community/admob installed (see docs/APP_ADS.md)
 // Rewarded ads are always the player's choice and pay out a reward. Interstitials only ever show after a result,
 // when the player taps "Next Job", and follow the pacing rules in interstitialDue().
+import { EDITION, ADS_EDITION } from './edition.js';
 const KEY = 'mq2_ads';
 // Google's public test ad units; swap in the real ones before release
 const UNITS = {
@@ -22,6 +24,7 @@ export class Ads {
     this.store = store;
     this.s = { clears: 0, lastInter: 0, lastRewarded: 0, day: '', used: {}, ...(store.get(KEY, {}) || {}) };
     this.mode = 'off';
+    if (EDITION === 'steam') return;   // bought once on Steam: never any ads or purchases
     try {
       const q = new URLSearchParams(location.search).get('ads');
       if (q === 'mock' || q === 'off') localStorage.setItem('mq_ads', q);
@@ -30,9 +33,12 @@ export class Ads {
     const cap = window.Capacitor;
     // the app's own bundle can hand the plugin over as window.MQ_ADMOB (import { AdMob } from '@capacitor-community/admob')
     this.admob = window.MQ_ADMOB || (cap && cap.Plugins && cap.Plugins.AdMob);
-    if (this.admob) this.mode = 'admob';
     this.platform = cap && cap.getPlatform ? cap.getPlatform() : 'web';
-    this.ready = this.mode === 'admob' ? this.admob.initialize({ initializeForTesting: true }).then(() => true, () => false) : Promise.resolve(this.mode !== 'off');
+    this.testing = true;
+    // the Android app (android/): the ad units and the test switch live in the app build, not here
+    if (window.MQAndroidAds) { this.admob = androidAds(window.MQAndroidAds); this.platform = 'android'; this.testing = this.admob.cfg.testing; }
+    if (this.admob && ADS_EDITION) this.mode = 'admob';
+    this.ready = this.mode === 'admob' ? this.admob.initialize({ initializeForTesting: this.testing }).then(r => !(r && r.ok === false), () => false) : Promise.resolve(this.mode !== 'off');
   }
   save() { this.store.set(KEY, this.s); }
   get enabled() { return this.mode !== 'off'; }
@@ -49,7 +55,7 @@ export class Ads {
     else {
       try {
         const id = (UNITS[this.platform] || UNITS.android).rewarded;
-        await this.admob.prepareRewardVideoAd({ adId: id, isTesting: true });
+        await this.admob.prepareRewardVideoAd({ adId: id, isTesting: this.testing });
         const r = await this.admob.showRewardVideoAd();
         ok = !!r;
       } catch (e) { ok = false; }
@@ -74,10 +80,12 @@ export class Ads {
     if (this.mode === 'mock') { await mockAd('interstitial'); return; }
     try {
       const id = (UNITS[this.platform] || UNITS.android).interstitial;
-      await this.admob.prepareInterstitial({ adId: id, isTesting: true });
+      await this.admob.prepareInterstitial({ adId: id, isTesting: this.testing });
       await this.admob.showInterstitial();
     } catch (e) {}
   }
+  // can the remove-ads purchase be offered here? (only with a store hook, or the mock)
+  get canBuy() { return this.mode === 'mock' || (this.mode === 'admob' && !!window.MQ_IAP); }
   // remove-ads (a one-time purchase that removes interstitials only). The app build sets window.MQ_IAP =
   // { buy(productId) → Promise<bool>, restore() → Promise<string[]> } on top of its store plugin.
   async buyRemoveAds() {
@@ -92,6 +100,26 @@ export class Ads {
     if (!iap || !iap.restore) return false;
     try { return (await iap.restore()).includes(IAP_REMOVE_ADS); } catch (e) { return false; }
   }
+}
+
+// ---------------------------------------------------------------- the Android app's ad bridge
+// android/app/.../AdsBridge.kt is window.MQAndroidAds: each call takes a callback id and answers later through
+// window.__mqAdsCb(id, result). Wrapped here in the same promise API as the AdMob plugin (the unit ids are the app's).
+function androidAds(br) {
+  const cbs = new Map(); let n = 0;
+  window.__mqAdsCb = (id, r) => { const f = cbs.get(id); if (f) { cbs.delete(id); f(r || {}); } };
+  const call = m => new Promise(res => { const id = 'a' + (++n); cbs.set(id, res); try { br[m](id); } catch (e) { cbs.delete(id); res({ ok: false }); } });
+  const need = r => { if (!r.ok) throw new Error(r.error || 'no ad'); return r; };
+  let cfg = { testing: true };
+  try { cfg = JSON.parse(br.config()); } catch (e) {}
+  return {
+    cfg,
+    initialize: () => call('initialize'),
+    prepareRewardVideoAd: () => call('loadRewarded').then(need),
+    showRewardVideoAd: () => call('showRewarded').then(r => (r.earned ? r : null)),
+    prepareInterstitial: () => call('loadInterstitial').then(need),
+    showInterstitial: () => call('showInterstitial'),
+  };
 }
 
 // ---------------------------------------------------------------- mock ads (a full-screen card with a countdown)

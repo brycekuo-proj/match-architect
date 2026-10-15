@@ -31,6 +31,11 @@ export class Audio {
     this.musicOn = on; try { localStorage.setItem('mq_music', on ? '1' : '0'); } catch (e) {}
     if (this.mus) this.mus.gain.setTargetAtTime(on ? 0.22 : 0, this.ctx.currentTime, 0.2);
   }
+  // the page or the app went to the background (or an ad covers it): silence everything until it comes back
+  pause(on) {
+    if (!this.ctx) return;
+    try { if (on) this.ctx.suspend(); else this.ctx.resume(); } catch (e) {}
+  }
   get ok() { return !!this.ctx; }
   _noise(dur, type, freq, q, gain, when = 0, dest = this.sfx) {
     const c = this.ctx, t = c.currentTime + when;

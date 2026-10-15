@@ -1,4 +1,5 @@
-// Build: (1) artifact page using CDN libs via import map, (2) fully self-contained itch.io index.html
+// Build: (1) artifact page using CDN libs via import map, (2) fully self-contained itch.io index.html (both the web /
+// game-jam edition, jobs 1–10), (3) the full editions for Google Play, App Store, Steam and the author's preview
 import { build } from 'esbuild';
 import fs from 'fs';
 import path from 'path';
@@ -30,7 +31,7 @@ fs.mkdirSync('dist/itch', { recursive: true });
 // 1) artifact build
 const a = await build({
   entryPoints: ['src/entry.js'], bundle: true, format: 'esm', minify: true, write: false, target: 'es2020',
-  external: ['three', 'three/addons/*', 'planck'], plugins: [webEdition],
+  external: ['three', 'three/addons/*', 'planck'], plugins: [webEdition], define: { __MQ_EDITION__: '"web"' },
 });
 const importmap = `<script type="importmap">${JSON.stringify({ imports: {
   three: 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js',
@@ -41,21 +42,27 @@ const art = tpl.replace('<!--IMPORTMAP-->', () => importmap).replace('<!--APP-->
 fs.writeFileSync('dist/match-architect.html', art);
 
 // 2) itch build (offline, single file)
-const b = await build({ entryPoints: ['src/entry.js'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020', plugins: [webEdition] });
+const b = await build({ entryPoints: ['src/entry.js'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020', plugins: [webEdition], define: { __MQ_EDITION__: '"web"' } });
 const head = `<!doctype html>\n<html lang="zh-Hant">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">\n`;
 const body = tpl.replace('<!--IMPORTMAP-->', '').replace('<!--APP-->', () => `<script>${esc(b.outputFiles[0].text)}</script>`);
 const [pre, post] = body.split('<div id="app">');
 fs.writeFileSync('dist/itch/index.html', `${head}${pre}</head>\n<body>\n<div id="app">${post}</body>\n</html>\n`);
 fs.copyFileSync('dist/itch/index.html', 'play.html');   // the game page on GitHub Pages (index.html is the homepage)
 
-// 3) full edition for the App (Capacitor): every job and model, including private/. Not published on the web.
+// 3) full editions (jobs 1–100 with every model, including private/). Not published on the web; dist/app, dist/steam and
+// dist/ios are git-ignored. One build per store: EDITION decides ads (src/ads.js) and a few labels (src/edition.js).
+//   android → the Google Play App (android/build.sh copies dist/app/index.html into the APK): free, AdMob, remove-ads purchase
+//   ios     → the App Store App (WKWebView, same rules as android)
+//   steam   → the Steam desktop build (steam/, Electron): bought once, no ads or purchases
+//   preview → for the author: every job open and plenty of coins, to try any job
 const privateEdition = { name: 'private-edition', setup(b) {
   if (hasPrivate) b.onResolve({ filter: /\/levels_private\.js$/ }, () => ({ path: path.resolve(`${PRIV}/levels_private.js`) }));
 } };
-const c = await build({ entryPoints: ['src/entry.js'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020', plugins: [privateEdition] });
-fs.mkdirSync('dist/app', { recursive: true });
-fs.writeFileSync('dist/app/index.html', `${head}${pre}</head>\n<body>\n<div id="app">${tpl.replace('<!--IMPORTMAP-->', '').replace('<!--APP-->', () => `<script>${esc(c.outputFiles[0].text)}</script>`).split('<div id="app">')[1]}</body>\n</html>\n`);
-// 4) full-edition preview for the author: the same, with every job open and plenty of coins (dist/app/ is git-ignored)
-const pv = await build({ entryPoints: ['src/entry.js'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020', plugins: [privateEdition], define: { __MQ_PREVIEW__: 'true' } });
-fs.writeFileSync('dist/app/preview.html', `${head}${pre}</head>\n<body>\n<div id="app">${tpl.replace('<!--IMPORTMAP-->', '').replace('<!--APP-->', () => `<script>${esc(pv.outputFiles[0].text)}</script>`).split('<div id="app">')[1]}</body>\n</html>\n`);
-for (const f of ['dist/match-architect.html', 'dist/itch/index.html', 'dist/app/index.html', 'dist/app/preview.html']) console.log(f, (fs.statSync(f).size / 1024).toFixed(0) + ' KB');
+const appPage = js => `${head}${pre}</head>\n<body>\n<div id="app">${tpl.replace('<!--IMPORTMAP-->', '').replace('<!--APP-->', () => `<script>${esc(js)}</script>`).split('<div id="app">')[1]}</body>\n</html>\n`;
+const FULL = [['android', 'dist/app/index.html'], ['preview', 'dist/app/preview.html'], ['steam', 'dist/steam/index.html'], ['ios', 'dist/ios/index.html']];
+for (const [ed, out] of FULL) {
+  const r = await build({ entryPoints: ['src/entry.js'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020', plugins: [privateEdition], define: { __MQ_EDITION__: JSON.stringify(ed) } });
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, appPage(r.outputFiles[0].text));
+}
+for (const f of ['dist/match-architect.html', 'dist/itch/index.html', ...FULL.map(([, out]) => out)]) console.log(f, (fs.statSync(f).size / 1024).toFixed(0) + ' KB');

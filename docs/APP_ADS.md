@@ -1,41 +1,35 @@
-# App 版的廣告與內購（之後上架用）
+# App 版的廣告與內購
 
-網頁版、itch.io 版沒有廣告。App 版用 Capacitor 包裝 `dist/itch/index.html`，廣告走 AdMob，「移除廣告」走商店內購。遊戲端已經寫好（`src/ads.js`），App 端只要接上外掛。
+網頁版、itch.io 版、Steam 版沒有廣告。手機 App 版（Google Play、App Store）免費、100 關全開，靠 AdMob 廣告，另賣「移除廣告」內購。遊戲端的廣告規則寫在 `src/ads.js`。
 
-## 1. 包成 App
+## Android（已接上 AdMob）
+`android/` 是 Android App：一個全螢幕 WebView 載入完整版（`dist/app/index.html`），加上 Google Mobile Ads SDK。
+
 ```bash
-npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios
-npx cap init "Match Architect" com.brycekuo.matcharchitect --web-dir dist/itch
-npx cap add android
-npx cap add ios
+android/build.sh             # npm run build → 把完整版放進 App → 打包 debug APK
+android/build.sh --skip-web  # 直接用現有的 dist/app/index.html
+# 產出：android/release/MatchArchitect-v<版本>.apk
 ```
+- 需要 JDK 17（`/opt/homebrew/opt/openjdk@17`）和 Android SDK（`/opt/homebrew/share/android-commandlinetools`），和其他 App 一樣。
+- Google Mobile Ads SDK 25.5、UMP 3.2（歐盟／英國玩家會先看到同意視窗），Kotlin 2.3，compileSdk／targetSdk 36。
+- `android/admob.properties`：AdMob 的 App ID、獎勵廣告和插頁廣告的單元 ID、`testing`。**現在是 Google 的測試 ID**，會顯示「Test Ad」，沒有收入。
+- App 裡的 `AdsBridge.kt` 以 `window.MQAndroidAds` 提供給網頁：一次預先載好一則獎勵廣告和一則插頁廣告，按下去馬上播；播完再載下一則。
+- 完整版（含第 11–100 關）只會被複製到 `android/app/src/main/assets/`，這個資料夾和 `android/release/` 都在 `.gitignore`，不會上 GitHub。
 
-## 2. AdMob
-```bash
-npm install @capacitor-community/admob
-npx cap sync
-```
-- 在 AdMob 後台建立 App，取得 **App ID**，填進 `android/app/src/main/AndroidManifest.xml`（`com.google.android.gms.ads.APPLICATION_ID`）和 `ios/App/App/Info.plist`（`GADApplicationIdentifier`）。
-- 建立兩個廣告單元：**獎勵廣告**、**插頁廣告**，把 `src/ads.js` 裡 `UNITS` 的測試 ID 換成正式 ID，並把 `isTesting: true` 改成 `false`、`initializeForTesting` 改成 `false`。
-- 如果 `window.Capacitor.Plugins.AdMob` 拿不到外掛，在 App 的入口加一行：
-  ```js
-  import { AdMob } from '@capacitor-community/admob';
-  window.MQ_ADMOB = AdMob;
-  ```
-- iOS 需要 App Tracking Transparency 說明文字（`NSUserTrackingUsageDescription`），歐盟玩家需要 UMP 同意視窗。
+### 上架前要做的
+1. 在 [AdMob](https://admob.google.com) 建立 Android App，建兩個廣告單元：**獎勵廣告**、**插頁廣告**。
+2. 把 App ID 和兩個單元 ID 填進 `android/admob.properties`，`testing=false`，重新打包。測試時不要點自己的正式廣告。
+3. 建立上架用的簽章金鑰（keystore），改用 `./gradlew bundleRelease` 產生 AAB 上傳到 Google Play Console。
+4. 「移除廣告」內購：接 Google Play Billing（商品 ID `remove_ads`），在 App 裡提供 `window.MQ_IAP = { buy(id), restore() }`。接好之前，商店不會顯示「移除廣告」。
 
-## 3. 移除廣告（一次性內購，US$2.99）
-在 Google Play Console 和 App Store Connect 建立非消耗型商品，ID 用 `remove_ads`。用任一內購外掛（例如 cordova-plugin-purchase 或 RevenueCat），在 App 入口提供：
-```js
-window.MQ_IAP = {
-  async buy(productId) { /* 購買成功回傳 true */ },
-  async restore() { /* 回傳已購買的商品 ID 陣列，例如 ['remove_ads'] */ },
-};
-```
-遊戲會在商店的「移除廣告」卡片呼叫 `buy('remove_ads')`，「恢復購買」呼叫 `restore()`。
+## iOS（還沒做）
+需要 Xcode 和 Apple 開發者帳號。做法和 Android 一樣：WKWebView 載入完整版，加 Google Mobile Ads iOS SDK、ATT 說明文字（`NSUserTrackingUsageDescription`）、StoreKit 內購，網頁端用同樣的廣告介面。
+
+## Capacitor（另一條路，目前沒用）
+`src/ads.js` 也能接 `@capacitor-community/admob`：外掛在 `window.Capacitor.Plugins.AdMob` 或 `window.MQ_ADMOB` 時自動使用。
 
 ## 遊戲裡的廣告規則（`src/ads.js`）
-- 獎勵廣告都由玩家自己選：過關後再領一次酬勞、沒過關退回燒掉的火柴錢、每日禮物 30 → 60 金幣、商店看廣告領 20 金幣（每天 5 次）或示範券（每天 3 次）。看到一半關掉沒有獎勵。
+- 獎勵廣告都由玩家自己選：過關後再領一次酬勞、沒過關退回燒掉的火柴錢、每日簽到加倍、商店看廣告領 20 金幣（每天 5 次）或示範券（每天 3 次）。看到一半關掉沒有獎勵。
 - 插頁廣告：只在驗收單按「下一張委託」時出現；第 1～3 關不出現；至少隔 3 次過關且 3 分鐘；3 分鐘內看過獎勵廣告就不出現；買了移除廣告就不出現。
-- 搭建和地震進行中都不會出現任何廣告。
-- 測試：網址加 `?ads=mock` 用假廣告跑完整流程（會記住；`?ads=off` 關掉）。
+- 搭建和地震進行中都不會出現任何廣告。廣告蓋住遊戲或 App 切到背景時，遊戲聲音會暫停。
+- 網頁測試：網址加 `?ads=mock` 用假廣告跑完整流程（會記住；`?ads=off` 關掉）。

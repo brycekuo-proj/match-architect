@@ -11,6 +11,7 @@ import { Shop } from './shop.js';
 import { ICONS } from './icons.js';
 import { Ads, setAdText, REMOVE_ADS_PRICE } from './ads.js';
 import { CheckIn, ROUND, DAILY_COINS, MAKEUP_MAX } from './checkin.js';
+import { EDITION } from './edition.js';
 import { TEASERS, WEB_EDITION } from './levels_full.js';   // web builds get levels_web.js: jobs 1–10 only (TEASERS: optional locked cards)
 
 const $ = id => document.getElementById(id);
@@ -29,8 +30,8 @@ G.progress.best = G.progress.best || {};
 const START_COINS = 30, FLOOR_COINS = 10, MATCH_COST = 1, REFUND = 2;
 const ZOOM_STEP = 1.3;   // one tap of + / − on the zoom buttons
 G.coins = store.get('mq2_coins', START_COINS);
-// 完整版試玩檔 (dist/app/preview.html, built with __MQ_PREVIEW__): every job open and plenty of coins, to try any job
-const PREVIEW = typeof __MQ_PREVIEW__ !== 'undefined' && __MQ_PREVIEW__;
+// 完整版試玩檔 (dist/app/preview.html, the 'preview' edition): every job open and plenty of coins, to try any job
+const PREVIEW = EDITION === 'preview';
 if (PREVIEW) { G.progress.unlocked = Math.max(G.progress.unlocked || 1, 999); G.coins = Math.max(G.coins, 5000); }
 G.earned = Math.max(store.get('mq2_earned', 0), G.coins);   // lifetime coins earned (the coin leaderboard), spending doesn't lower it
 const earn = n => { G.earned += Math.max(0, n); store.set('mq2_earned', G.earned); };
@@ -584,6 +585,7 @@ function adCards(grid) {
     grid.prepend(card('adcard', kind === 'coins' ? '<b class="plus">+20</b>' : ICONS.hint, t('ad.' + kind), t('ad.' + kind + '.d', { n: left }), b));
   }
   const owned = shop.noAds;
+  if (!owned && !ads.canBuy) return;   // the app has no store purchase hooked up yet: don't offer it
   const buy = mkb(owned ? t('noads.done') : REMOVE_ADS_PRICE, owned ? 'using' : 'price', async () => {
     audio.click();
     if (await ads.buyRemoveAds()) { shop.setNoAds(true); audio.win(); toast(t('noads.thanks')); }
@@ -1169,6 +1171,8 @@ function fatal(msg) {
 
 export async function boot(data = {}) {
   window.__mqBooted = true;
+  // the jam credit line is for the web / jam edition; the store versions carry a plain credit
+  if (EDITION !== 'web') document.querySelectorAll('[data-t="title.jam"]').forEach(e => e.setAttribute('data-t', 'title.credit'));
   applyStatic();
   try {
     const models = await loadModels();
@@ -1180,6 +1184,9 @@ export async function boot(data = {}) {
     view.setSkin(shop.skin); view.setScene(shop.scene);
     bindUI();
     setCoins(G.coins);
+    // background / an ad on top: no sound (the Android app also calls __mqAppPause from onPause / onResume)
+    document.addEventListener('visibilitychange', () => audio.pause(document.hidden));
+    window.__mqAppPause = on => audio.pause(!!on);
     window.__mq = { G, LEVELS, REFERENCE, lb, setQuakeType, frame(dt = 1 / 30) { frame(dt, performance.now()); }, get view() { return view; }, get turntable() { return turntable; }, shop, loadRef(id) { G.design.clear(); REFERENCE[id](G.design); refresh(); },
       setCoins, itemsChanged, setTool, runScan, slotTap, ads, checkin,
       reveal(id) { G.idx = LEVELS.findIndex(l => l.id === id); G.state = 'result'; showReveal(LEVELS[G.idx]); } };

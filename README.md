@@ -55,16 +55,19 @@
 
 商店也賣外觀：火柴造型（竹筷 300、糖果棒 400、夜光 600、金火柴 1000）和場景（沙漠 200、雪地 400、夜晚 600）。過關的建築模型收在標題畫面的「展示櫃」。
 
-## 廣告（App 版）
-網頁版、itch.io 版和 jam 版都**沒有廣告**。廣告只在之後的 App 版（Capacitor + AdMob）出現，規則寫在 `src/ads.js`：
+## 版本
+網頁版（GitHub Pages、itch.io、jam、Claude 分享連結）就是比賽版：第 1 章 10 關、免費、沒有廣告。完整版 100 關分三種：Google Play／App Store 免費加廣告（可買移除廣告），Steam 買斷、沒有廣告也沒有內購。各版本差在哪、怎麼建置、排行榜怎麼做：[docs/EDITIONS.md](docs/EDITIONS.md)。
+
+## 廣告（手機版）
+網頁版、itch.io 版、jam 版和 Steam 版都**沒有廣告**。廣告只在手機 App 版（Google Play、App Store，AdMob）出現，規則寫在 `src/ads.js`：
 - 獎勵廣告（玩家自己選）：過關後看廣告再領一次酬勞、沒過關看廣告退回燒掉的火柴錢、每日簽到看廣告金幣變雙倍、商店裡看廣告領 20 金幣（每天 5 次）或示範券（每天 3 次）。
 - 插頁廣告：只在驗收單按「下一張委託」時出現；前 3 關不出現；至少隔 3 次過關、3 分鐘；剛看過獎勵廣告不出現。
 - 移除廣告：一次購買 US$2.99，只移除插頁廣告，獎勵廣告照樣可以用。
 - 想先看流程：網址加 `?ads=mock` 會用假廣告（會記住，`?ads=off` 關掉）。
-- App 端怎麼接 AdMob 和內購：[docs/APP_ADS.md](docs/APP_ADS.md)。
+- Android App（`android/`）已經接上 AdMob；怎麼打包、上架前要換哪些 ID、內購怎麼接：[docs/APP_ADS.md](docs/APP_ADS.md)。
 
 ## 關卡
-網頁版（GitHub Pages、itch.io、jam、Claude 分享連結）有第 1 章的 10 關：3 個教學關＋7 座世界名建築（獅身人面像到台北 101，震度 3 → 6 強），後半段先預告幾種新地震：金字塔是直下型、艾菲爾鐵塔是 P波→S波、東京鐵塔是餘震、台北 101 是長週期（業主送一顆阻尼球）。完整版（之後的 App）有 **100 關，10 章 × 10 關**，每章教一件新東西、章末是一座名建築；網頁版的委託清單只有這 10 關，不顯示完整版的關卡。完整版的委託清單會分章顯示。100 關企劃見 [docs/LEVEL_PLAN.md](docs/LEVEL_PLAN.md)。
+網頁版（GitHub Pages、itch.io、jam、Claude 分享連結）有第 1 章的 10 關：3 個教學關＋7 座世界名建築（獅身人面像到台北 101，震度 3 → 6 強），後半段先預告幾種新地震：金字塔是直下型、艾菲爾鐵塔是 P波→S波、東京鐵塔是餘震、台北 101 是長週期（業主送一顆阻尼球）。完整版（Google Play、App Store、Steam）有 **100 關，10 章 × 10 關**，每章教一件新東西、章末是一座名建築；網頁版的委託清單只有這 10 關，不顯示完整版的關卡。完整版的委託清單會分章顯示。100 關企劃見 [docs/LEVEL_PLAN.md](docs/LEVEL_PLAN.md)。
 
 ### 地震類型
 每關除了震度，還有一種地震類型（委託單上的「地震類型」），規則寫在 `src/sim.js` 的 `QT`：
@@ -92,12 +95,12 @@
 關卡用 `src/leveltools.js` 的「格子圖」寫：一個字元半支火柴寬，畫出參考解的接點、錨點和星星，就會自動算出錨點、星星、三星火柴數、參考解和淡淡的輪廓提示。
 
 ### 完整版和網頁版怎麼分開
-- 建置網頁版時，`build.mjs` 會把 `src/levels_full.js` 換成 `src/levels_web.js`，所以網頁版檔案裡完全沒有第 11 關以後的關卡、參考解和模型。`dist/app/index.html` 是完整版（給之後的 App 用），不放上網。
+- 建置網頁版時，`build.mjs` 會把 `src/levels_full.js` 換成 `src/levels_web.js`，所以網頁版檔案裡完全沒有第 11 關以後的關卡、參考解和模型。完整版（`dist/app/`、`dist/steam/`、`dist/ios/`）不放上網。
 - 公開的 repo 裡只有第 40 關（東京晴空塔）。第 11–100 關的其他內容只放在作者自己的電腦（`private/` 資料夾，已列在 `.gitignore`），`src/levels_private.js` 只是空的替身。完整版建置和 `npm run test:full` 會自動改用 `private/levels_private.js`。
 - 檢查全部關卡：`node --import ./test/use-private.mjs test/levels.test.mjs 11-100`（每關參考解都要放得上去、撐得過它的地震，而且用的火柴數就是三星門檻）。
 
 ## 排行榜
-`dist/match-architect.html` 是 Claude 分享連結版，使用 Claude artifact 內建的共用資料庫，比每關誰用的火柴最少，以及金幣總榜。GitHub Pages 上的 `play.html` 沒有排行榜，其他功能相同。
+`dist/match-architect.html` 是 Claude 分享連結版，使用 Claude artifact 內建的共用資料庫，比每關誰用的火柴最少，以及金幣總榜。GitHub Pages 上的 `play.html` 沒有排行榜，其他功能相同。之後的 Steam、Google Play、App Store 版各用平台自己的排行榜（不跨平台），見 [docs/EDITIONS.md](docs/EDITIONS.md)。
 
 ## 技術
 - 物理：[Planck.js](https://github.com/piqnt/planck.js)（2D，火柴是剛體、膠點是有摩擦的鉸接，受力超過門檻就斷）
@@ -109,7 +112,9 @@
 ## 開發
 ```bash
 npm install
-npm run build   # 產生網頁版 dist/match-architect.html、dist/itch/index.html（複製成根目錄的 play.html），以及完整版 dist/app/index.html
+npm run build   # 網頁版 dist/match-architect.html、dist/itch/index.html（複製成根目錄的 play.html），以及完整版 dist/app、dist/steam、dist/ios
+android/build.sh   # Android App（APK）
+steam/build.sh     # Steam 桌面版（Electron）
 cd dist/itch && zip ../match-architect-itch.zip index.html   # itch.io 上傳用的 zip
 npm test        # 每關參考解必須撐過該關震度；太細、太窄的錯誤解必須倒；倒下的建築必須燒起來；每種道具都要真的有效
 python3 test/zoom.py   # 縮放按鈕、雙指捏合、滾輪（需要 Playwright）
@@ -134,12 +139,16 @@ python3 test/ads.py    # 廣告（假廣告模式）與移除廣告
 | `src/shop.js` | 商店品項、價格與庫存 |
 | `src/icons.js` | 道具圖示 |
 | `src/ads.js` | 廣告與移除廣告購買（假廣告／AdMob） |
+| `src/edition.js` | 這是哪個版本（網頁／Android／iOS／Steam／作者試玩） |
 | `src/leaderboard.js` | 排行榜（可換成其他後端） |
 | `src/audio.js` | 合成音效與音樂 |
 | `src/template.html` | 遊戲頁面與樣式 |
 | `blender/` | 火柴、Q 版建築模型與封面的 Blender 腳本 |
 | `assets/landmarks/` | 13 個 Q 版建築模型（GLB，建置時嵌入遊戲） |
 | `docs/LEVEL_PLAN.md` | 100 關企劃與實作結果 |
+| `android/` | Android App（WebView＋AdMob） |
+| `steam/` | Steam 桌面版（Electron） |
+| `docs/EDITIONS.md` | 各平台版本、建置方式、排行榜規劃 |
 | `docs/APP_ADS.md` | App 版接 AdMob 與移除廣告內購 |
 | `docs/itch/` | itch.io 報名素材：英文頁面文字、封面、截圖 |
 

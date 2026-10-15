@@ -11,3 +11,17 @@ dist/app/
 src/assets_web.js
 private/
 __pycache__/
+# Android app (android/): build outputs, local SDK path, and the bundled full edition (private levels) stay off GitHub
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/local.properties
+android/app/src/main/assets/
+android/release/
+node_modules/
+# full editions for the stores (private levels inside): Steam desktop build and iOS page stay off GitHub
+dist/steam/
+dist/ios/
+steam/app/
+steam/build/
+steam/release/

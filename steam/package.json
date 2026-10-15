@@ -1,0 +1,26 @@
+{
+  "name": "match-architect-steam",
+  "productName": "Match Architect",
+  "version": "1.0.0",
+  "description": "火柴建築師 Match Architect（Steam 桌面版）",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "dist": "electron-builder --mac --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.5.1",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "com.brycekuo.matcharchitect",
+    "productName": "Match Architect",
+    "files": ["main.js", "app/**"],
+    "directories": { "output": "release", "buildResources": "build" },
+    "mac": { "target": "dir", "category": "public.app-category.puzzle-games", "icon": "build/icon.png" },
+    "win": { "target": "dir", "icon": "build/icon.png" },
+    "linux": { "target": "dir", "icon": "build/icon.png" }
+  }
+}
