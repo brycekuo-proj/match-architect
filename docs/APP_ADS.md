@@ -12,15 +12,17 @@ android/build.sh --skip-web  # 直接用現有的 dist/app/index.html
 ```
 - 需要 JDK 17（`/opt/homebrew/opt/openjdk@17`）和 Android SDK（`/opt/homebrew/share/android-commandlinetools`），和其他 App 一樣。
 - Google Mobile Ads SDK 25.5、UMP 3.2（歐盟／英國玩家會先看到同意視窗），Kotlin 2.3，compileSdk／targetSdk 36。
-- `android/admob.properties`：AdMob 的 App ID、獎勵廣告和插頁廣告的單元 ID、`testing`。**現在是 Google 的測試 ID**，會顯示「Test Ad」，沒有收入。
+- `android/admob.properties`：AdMob 的 App ID、獎勵廣告和插頁廣告的單元 ID、`testing`。已經填上正式 ID（AdMob 帳號 `pub-3164945301503336` 的 App「火柴建築師」，2026-10-15 建立）。
+- debug 版一律用 Google 的測試廣告單元（顯示「Test Ad」、沒有收入）；release 版在 `testing=true` 時也用測試廣告，改成 `testing=false` 才會用正式單元。開發時不要點自己的正式廣告，會被停權。
 - App 裡的 `AdsBridge.kt` 以 `window.MQAndroidAds` 提供給網頁：一次預先載好一則獎勵廣告和一則插頁廣告，按下去馬上播；播完再載下一則。
 - 完整版（含第 11–100 關）只會被複製到 `android/app/src/main/assets/`，這個資料夾和 `android/release/` 都在 `.gitignore`，不會上 GitHub。
 
 ### 上架前要做的
-1. 在 [AdMob](https://admob.google.com) 建立 Android App，建兩個廣告單元：**獎勵廣告**、**插頁廣告**。
-2. 把 App ID 和兩個單元 ID 填進 `android/admob.properties`，`testing=false`，重新打包。測試時不要點自己的正式廣告。
-3. 建立上架用的簽章金鑰（keystore），改用 `./gradlew bundleRelease` 產生 AAB 上傳到 Google Play Console。
-4. 「移除廣告」內購：接 Google Play Billing（商品 ID `remove_ads`），在 App 裡提供 `window.MQ_IAP = { buy(id), restore() }`。接好之前，商店不會顯示「移除廣告」。
+1. ~~在 AdMob 建立 App 和兩個廣告單元~~（已完成：火柴建築師_獎勵、火柴建築師_插頁，ID 已填進 `android/admob.properties`）。
+2. `android/admob.properties` 改成 `testing=false`，打包 release 版。
+3. 建立上架用的簽章金鑰（keystore），改用 `./gradlew bundleRelease` 產生 AAB 上傳到 Google Play Console。上架後在 AdMob 的 App 頁按「新增商店」連結 Google Play，審核通過前廣告放送會受限。
+4. 在 AdMob 的「隱私權和訊息」為這個 App 建立 GDPR 同意訊息（需要隱私權政策網址）。沒建的話，App 啟動時 UMP 會回報「no form(s) configured」，歐盟／英國玩家看不到廣告；其他地區不受影響。
+5. 「移除廣告」內購：接 Google Play Billing（商品 ID `remove_ads`），在 App 裡提供 `window.MQ_IAP = { buy(id), restore() }`。接好之前，商店不會顯示「移除廣告」。
 
 ## iOS（還沒做）
 需要 Xcode 和 Apple 開發者帳號。做法和 Android 一樣：WKWebView 載入完整版，加 Google Mobile Ads iOS SDK、ATT 說明文字（`NSUserTrackingUsageDescription`）、StoreKit 內購，網頁端用同樣的廣告介面。
